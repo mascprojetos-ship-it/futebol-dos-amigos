@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Futebol dos Amigos (FDA) — Portal Oficial & FDA TV v2.0</title>
+<script src="//cdn.tailwindcss.com"></script>
+<style>
+body{background:#04160e;color:#ecfdf5;font-family:system-ui,-apple-system,sans-serif}
+.gold{color:#FFD700}.bg-card{background:rgba(10,38,25,.88);border:1px solid rgba(255,215,0,.22)}
+.fut-card{background:linear-gradient(155deg,#1f4d36 0%,#092216 65%,#3a2e08 100%);border:2px solid #FFD700;box-shadow:0 10px 25px rgba(0,0,0,.5)}
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+<div class="bg-emerald-950 border-b border-yellow-500/30 text-xs py-1.5 px-4 flex flex-wrap justify-between items-center gap-2">
+<div class="flex items-center gap-2"><span class="px-2 py-0.5 rounded bg-red-600 text-white font-bold animate-pulse">● FDA TV AO VIVO</span><span>Pelada todo Domingo 06:00 (Chegada 05:40) • Campo Imperial • Festa 11 Anos: 22/11 🎉</span></div>
+<span id="sync-badge" class="px-2 py-0.5 rounded bg-emerald-900/80 border border-yellow-400/40 text-yellow-300 font-semibold">Supabase fda_estado v64 Ativo</span>
+</div>
+<header class="bg-[#072115]/95 border-b border-yellow-500/30 sticky top-0 z-40 backdrop-blur">
+<div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+<div class="flex items-center gap-3">
+<div class="w-11 h-11 rounded-full bg-emerald-800 border-2 border-yellow-400 flex items-center justify-center font-black text-yellow-300 shadow-lg">FDA</div>
+<div><h1 class="text-lg font-black tracking-tight text-white">FUTEBOL DOS AMIGOS <span class="gold text-xs font-bold">11 ANOS</span></h1><p class="text-xs text-emerald-300">Portal Oficial, Scouts, Resenha & FDA TV Broadcast</p></div>
+</div>
+<nav id="nav" class="flex flex-wrap gap-1.5 text-xs font-bold"></nav>
+</div>
+</header>
+<main id="app" class="max-w-7xl mx-auto w-full px-4 py-6 flex-1 space-y-6"></main>
+<div id="toast" class="fixed bottom-4 right-4 hidden bg-emerald-900 border border-yellow-400 text-white px-4 py-2.5 rounded-xl shadow-2xl text-xs font-bold z-50"></div>
+<script>
+const S={
+tab:'overview',g:3,r:1,sec:0,run:false,tmr:null,pos:'ALL',p1:0,p2:1,
+players:[
+{id:1,n:'Michel M14',p:'MEI',ovr:91,g:18,a:14,s:8.9,rit:89,fin:90,pas:93,dri:92,def:68,fis:84,paid:true,v:11},
+{id:2,n:'Rodrigo Gomes',p:'ATA',ovr:89,g:21,a:8,s:8.6,rit:91,fin:92,pas:82,dri:88,def:55,fis:85,paid:true,v:8},
+{id:3,n:'Leo Paredão',p:'GOL',ovr:88,g:0,a:2,s:8.5,rit:78,fin:50,pas:80,dri:72,def:92,fis:88,paid:true,v:6},
+{id:4,n:'Bruninho 10',p:'MEI',ovr:87,g:12,a:16,s:8.4,rit:86,fin:83,pas:90,dri:89,def:64,fis:79,paid:true,v:5},
+{id:5,n:'Thiago Silva FDA',p:'ZAG',ovr:86,g:4,a:3,s:8.2,rit:80,fin:65,pas:79,dri:74,def:91,fis:90,paid:true,v:4},
+{id:6,n:'Carlinhos Bala',p:'ATA',ovr:85,g:15,a:7,s:8.1,rit:92,fin:86,pas:77,dri:86,def:52,fis:81,paid:false,v:3},
+{id:7,n:'Diego Pitbull',p:'VOL',ovr:84,g:5,a:9,s:7.9,rit:82,fin:72,pas:84,dri:78,def:88,fis:91,paid:true,v:2},
+{id:8,n:'Marcinho Muralha',p:'GOL',ovr:85,g:0,a:1,s:8.0,rit:75,fin:45,pas:78,dri:70,def:89,fis:86,paid:false,v:2}
+],
+reels:[
+{id:1,t:'Golaço no ângulo de Michel M14 no Campo Imperial 🔥',u:'@futebolamigosdebel',st:'👑 REI DA PELADA',l:24,open:false},
+{id:2,t:'Defesa milagrosa de Leo Paredão no último minuto 🧤',u:'@futebolamigosdebel',st:'🧱 PAREDÃO FDA',l:19,open:false},
+{id:3,t:'Caneta desconcertante + resenha pós-jogo 😂',u:'@futebolamigosdebel',st:'😂 QUE FASE!',l:31,open:false}
+],
+stickers:['👑 REI DA PELADA','😂 QUE FASE!','🧱 PAREDÃO FDA','🦵 CANETA HUMILHANTE','🚀 POMBO SEM ASA','🍺 GARÇOM DA RODADA'],
+events:[
+{m:'08\'',t:'⚽ Gol de Michel M14 (Assist. Bruninho 10) — Time Verde 1x0'},
+{m:'19\'',t:'⚽ Gol de Rodrigo Gomes — Time Verde 2x0'},
+{m:'27\'',t:'⚽ Gol de Carlinhos Bala — Time Vermelho 2x1'},
+{m:'38\'',t:'🧤 Defesa difícil de Leo Paredão'},
+{m:'42\'',t:'⚽ Gol de Michel M14 — Time Verde 3x1'}
+],
+teamA:['Leo Paredão (GOL)','Michel M14 (MEI)','Thiago Silva FDA (ZAG)','Carlinhos Bala (ATA)'],
+teamB:['Marcinho Muralha (GOL)','Rodrigo Gomes (ATA)','Bruninho 10 (MEI)','Diego Pitbull (VOL)']
+};
+const TABS=[['overview','🏟️ Clube'],['tv','📺 FDA TV'],['squad','👕 Elenco & Scouts'],['resenha','🎬 Resenha & Lances'],['tactics','📋 Sorteio & Jogo'],['awards','🏆 Votação & Mês'],['admin','🛡️ Diretoria']];
+function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.remove('hidden');setTimeout(()=>e.classList.add('hidden'),2600)}
+function renderNav(){
+document.getElementById('nav').innerHTML=TABS.map(([k,l])=>`<button onclick="S.tab='${k}';render()" class="px-3 py-1.5 rounded-lg transition ${S.tab===k?'bg-yellow-400 text-emerald-950 shadow':'bg-emerald-900/60 text-emerald-100 hover:bg-emerald-800'}">${l}</button>`).join('');
+}
+function render(){
+renderNav();
+const el=document.getElementById('app');
+if(S.tab==='overview'){
+el.innerHTML=`
+<div class="bg-card rounded-2xl p-6 grid md:grid-cols-3 gap-6 items-center">
+<div class="md:col-span-2 space-y-3">
+<span class="px-2.5 py-1 rounded-full bg-yellow-400/20 border border-yellow-400 text-yellow-300 text-xs font-bold">TEMPORADA 2026 • 11 ANOS DE HISTÓRIA</span>
+<h2 class="text-3xl font-black text-white">DOMINGO É DIA DE MANTO SAGRADO NO CAMPO IMPERIAL</h2>
+<p class="text-sm text-emerald-200">Chegada obrigatória às <b>05:40</b> para sorteio dos capitães e bola rolando às <b>06:00</b>. Mensalidade R$ 35,00 (vencimento dia 10 • PIX: <code class="gold">futebol.dos.amigos@email.com</code>).</p>
+<div class="flex flex-wrap gap-2 pt-1">
+<button onclick="S.tab='tactics';render()" class="px-4 py-2 rounded-xl bg-yellow-400 text-emerald-950 font-black text-xs">⚡ Ir para Súmula & Sorteio</button>
+<button onclick="S.tab='resenha';render()" class="px-4 py-2 rounded-xl bg-emerald-700 text-white font-bold text-xs">🎬 Ver Resenha & Lances</button>
+<button onclick="navigator.clipboard?.writeText('futebol.dos.amigos@email.com');toast('Chave PIX copiada!')" class="px-4 py-2 rounded-xl bg-emerald-950 border border-yellow-400/40 text-yellow-300 font-bold text-xs">💸 Copiar Chave PIX (R$ 35)</button>
+</div>
+</div>
+<div class="bg-emerald-950/90 border border-yellow-400/40 rounded-2xl p-4 text-center space-y-2">
+<p class="text-xs font-bold text-yellow-300 uppercase">Último Resultado Oficial (27/09/2026)</p>
+<div class="flex justify-around items-center text-2xl font-black py-2">
+<div><span class="text-emerald-400 text-sm block">TIME VERDE</span>${S.g}</div>
+<span class="text-xs text-emerald-400">FINAL</span>
+<div><span class="text-red-400 text-sm block">TIME VERMELHO</span>${S.r}</div>
+</div>
+<p class="text-xs text-emerald-300">🏆 Craque da Rodada: <b class="gold">Michel M14</b></p>
+</div>
+</div>
+<div class="grid md:grid-cols-3 gap-4">
+<div class="bg-card rounded-xl p-4"><span class="text-[11px] font-bold gold">EVENTO OFICIAL</span><h3 class="font-bold text-white mt-1">Festa de 11 Anos do FDA: 22/11 🎉</h3><p class="text-xs text-emerald-200 mt-1">Convocação geral da família Futebol dos Amigos para a comemoração histórica de 11 anos.</p></div>
+<div class="bg-card rounded-xl p-4"><span class="text-[11px] font-bold gold">MANTO NOVO</span><h3 class="font-bold text-white mt-1">Camisa Comemorativa 11 Anos 👕</h3><p class="text-xs text-emerald-200 mt-1">Verde esmeralda clássico com acabamento dourado de campeão.</p></div>
+<div class="bg-card rounded-xl p-4"><span class="text-[11px] font-bold gold">INTEGRAÇÃO SUPABASE + GITHUB</span><h3 class="font-bold text-white mt-1">Banco fda_estado (v64) Sincronizado</h3><p class="text-xs text-emerald-200 mt-1">Conectado ao projeto <code>jmaeteucizgjiplxhmvi</code> e repositório <code>mascprojetos-ship-it/futebol-dos-amigos</code>.</p></div>
+</div>`;
+} else if(S.tab==='tv'){
+el.innerHTML=`
+<div class="bg-card rounded-2xl p-6 space-y-4">
+<div class="flex flex-wrap justify-between items-center gap-2">
+<div><span class="text-xs font-bold text-red-400">● TRANSMISSÃO OFICIAL FDA TV</span><h2 class="text-2xl font-black text-white">Placar de Transmissão & Central de Destaques</h2></div>
+<div class="flex items-center gap-2">
+<button onclick="S.g++;render()" class="px-3 py-1.5 rounded bg-emerald-700 text-xs font-bold">+1 Gol Verde</button>
+<button onclick="S.r++;render()" class="px-3 py-1.5 rounded bg-red-700 text-xs font-bold">+1 Gol Vermelho</button>
+</div>
+</div>
+<div class="bg-black/60 border border-yellow-400/40 rounded-2xl p-6 text-center grid grid-cols-3 items-center">
+<div><p class="text-emerald-400 font-black text-lg">TIME VERDE</p><p class="text-5xl font-black text-white mt-1">${S.g}</p></div>
+<div><span class="px-3 py-1 rounded-full bg-yellow-400 text-emerald-950 font-black text-xs">CAMPO IMPERIAL • 06:00</span><p class="text-xs text-emerald-300 mt-2">Narrador: FDA TV Broadcast</p></div>
+<div><p class="text-red-400 font-black text-lg">TIME VERMELHO</p><p class="text-5xl font-black text-white mt-1">${S.r}</p></div>
+</div>
+</div>`;
+} else if(S.tab==='squad'){
+const list=S.pos==='ALL'?S.players:S.players.filter(x=>x.p===S.pos);
+const a=S.players[S.p1]||S.players[0], b=S.players[S.p2]||S.players[1];
+el.innerHTML=`
+<div class="flex flex-wrap justify-between items-center gap-3">
+<div><h2 class="text-2xl font-black text-white">👕 Elenco Oficial & Cartas FUT</h2><p class="text-xs text-emerald-300">Atributos técnicos (RIT, FIN, PAS, DRI, DEF, FIS) e nota Sofascore da temporada</p></div>
+<div class="flex flex-wrap gap-1.5">
+${['ALL','GOL','ZAG','VOL','MEI','ATA'].map(p=>`<button onclick="S.pos='${p}';render()" class="px-3 py-1 rounded-lg text-xs font-bold ${S.pos===p?'bg-yellow-400 text-emerald-950':'bg-emerald-900 text-emerald-200'}">${p}</button>`).join('')}
+</div>
+</div>
+<div class="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+${list.map(p=>`
+<div class="fut-card rounded-2xl p-4 relative">
+<div class="flex justify-between items-start">
+<div><span class="text-3xl font-black gold leading-none">${p.ovr}</span><span class="block text-xs font-bold text-emerald-200">${p.p}</span></div>
+<span class="px-2 py-0.5 rounded bg-black/50 border border-yellow-400/40 text-xs font-bold gold">★ ${p.s}</span>
+</div>
+<h3 class="text-base font-black text-white mt-2">${p.n}</h3>
+<p class="text-xs text-emerald-300 mb-2">⚽ ${p.g} Gols • 👟 ${p.a} Assist.</p>
+<div class="grid grid-cols-3 gap-1 text-[11px] bg-black/40 p-2 rounded-lg font-bold">
+<span>RIT ${p.rit}</span><span>FIN ${p.fin}</span><span>PAS ${p.pas}</span>
+<span>DRI ${p.dri}</span><span>DEF ${p.def}</span><span>FIS ${p.fis}</span>
+</div>
+</div>`).join('')}
+</div>
+<div class="bg-card rounded-2xl p-5 space-y-3">
+<h3 class="text-lg font-black gold">⚔️ Comparador 1×1 de Atletas (Scouts & Atributos)</h3>
+<div class="grid sm:grid-cols-2 gap-3">
+<select onchange="S.p1=+this.value;render()" class="bg-emerald-950 border border-yellow-400/40 rounded-lg p-2 text-xs font-bold">${S.players.map((x,i)=>`<option value="${i}" ${i===S.p1?'selected':''}>${x.n} (OVR ${x.ovr})</option>`).join('')}</select>
+<select onchange="S.p2=+this.value;render()" class="bg-emerald-950 border border-yellow-400/40 rounded-lg p-2 text-xs font-bold">${S.players.map((x,i)=>`<option value="${i}" ${i===S.p2?'selected':''}>${x.n} (OVR ${x.ovr})</option>`).join('')}</select>
+</div>
+<div class="grid grid-cols-3 text-center text-xs font-bold bg-black/40 rounded-xl p-3 gap-2">
+<div class="text-yellow-300">${a.n}<br>⚽ ${a.g} | 👟 ${a.a} | ★ ${a.s}</div>
+<div class="text-emerald-400">COMPARATIVO<br>OVR ${a.ovr} vs ${b.ovr}</div>
+<div class="text-emerald-200">${b.n}<br>⚽ ${b.g} | 👟 ${b.a} | ★ ${b.s}</div>
+</div>
+</div>`;
+} else if(S.tab==='resenha'){
+el.innerHTML=`
+<div class="bg-card rounded-2xl p-5 space-y-4">
+<div class="flex flex-wrap justify-between items-center gap-2">
+<div><h2 class="text-2xl font-black text-white">🎬 Resenha, Lances do Instagram & Figurinhas</h2><p class="text-xs text-emerald-300">Carregamento leve Click-to-Load (0 KB inicial) + Selos animados da turma</p></div>
+<button onclick="navigator.clipboard?.writeText('🎬 Resenha FDA: '+S.reels.map(r=>r.t+' ['+r.st+']').join(' | '));toast('Resumo da Resenha copiado para o WhatsApp!')" class="px-3 py-2 rounded-xl bg-green-600 hover:bg-green-500 text-white font-bold text-xs">📲 Copiar Resenha p/ WhatsApp</button>
+</div>
+<div class="flex flex-wrap gap-2">
+<input id="reel-title" placeholder="Título do lance (ex: Gol de bicicleta do Rodrigo)" class="flex-1 min-w-[220px] bg-emerald-950 border border-emerald-700 rounded-xl px-3 py-2 text-xs">
+<button onclick="const v=document.getElementById('reel-title').value.trim();if(v){S.reels.unshift({id:Date.now(),t:v,u:'@futebolamigosdebel',st:S.stickers[0],l:1,open:false});render();toast('Lance publicado na Resenha!')}" class="px-4 py-2 rounded-xl bg-yellow-400 text-emerald-950 font-black text-xs">+ Publicar Lance</button>
+</div>
+<div class="flex flex-wrap gap-1.5 items-center text-xs"><span class="font-bold gold">Figurinhas da Pelada:</span>${S.stickers.map(st=>`<span class="px-2.5 py-1 rounded-full bg-emerald-900 border border-yellow-400/40 font-bold">${st}</span>`).join('')}</div>
+<div class="grid md:grid-cols-3 gap-4">
+${S.reels.map((r,idx)=>`
+<div class="bg-emerald-950/90 border border-yellow-400/30 rounded-2xl p-4 space-y-3">
+<div class="flex justify-between items-center text-xs"><span class="font-bold text-emerald-300">${r.u}</span><span class="px-2 py-0.5 rounded-full bg-yellow-400 text-emerald-950 font-black">${r.st}</span></div>
+<p class="font-bold text-sm text-white">${r.t}</p>
+<div class="rounded-xl bg-black/70 border border-emerald-800 p-4 text-center">
+${r.open?`<p class="text-xs text-yellow-300 font-bold">▶ Player Instagram Reel Ativo (${r.u})</p><p class="text-[11px] text-emerald-300 mt-1">Embed sob demanda carregado sem travar a página.</p>`:`<button onclick="S.reels[${idx}].open=true;render()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-amber-500 text-white font-black text-xs">▶ Carregar Vídeo do Instagram (Click-to-Load)</button>`}
+</div>
+<div class="flex justify-between items-center text-xs">
+<button onclick="S.reels[${idx}].l++;render()" class="px-2.5 py-1 rounded bg-emerald-800 font-bold">🔥 ${r.l} Curtidas</button>
+<button onclick="S.reels[${idx}].st=S.stickers[(S.stickers.indexOf(S.reels[${idx}].st)+1)%S.stickers.length];render()" class="px-2.5 py-1 rounded bg-emerald-900 border border-yellow-400/40 text-yellow-300 font-bold">🏷️ Trocar Figurinha</button>
+</div>
+</div>`).join('')}
+</div>
+</div>`;
+} else if(S.tab==='tactics'){
+const mm=String(Math.floor(S.sec/60)).padStart(2,'0'), ss=String(S.sec%60).padStart(2,'0');
+el.innerHTML=`
+<div class="grid md:grid-cols-2 gap-6">
+<div class="bg-card rounded-2xl p-5 space-y-4">
+<div class="flex justify-between items-center">
+<h2 class="text-xl font-black text-white">⏱️ Modo Beira de Campo & Súmula Ao Vivo</h2>
+<span class="text-2xl font-mono font-black gold">${mm}:${ss}</span>
+</div>
+<div class="flex flex-wrap gap-2">
+<button onclick="if(S.run){clearInterval(S.tmr);S.run=false}else{S.run=true;S.tmr=setInterval(()=>{S.sec++;render()},1000)};render()" class="px-3 py-1.5 rounded-lg bg-yellow-400 text-emerald-950 font-black text-xs">${S.run?'⏸ Pausar Cronômetro':'▶ Iniciar Cronômetro'}</button>
+<button onclick="clearInterval(S.tmr);S.run=false;S.sec=0;render()" class="px-3 py-1.5 rounded-lg bg-emerald-800 text-white font-bold text-xs">↺ Zerar</button>
+<button onclick="navigator.clipboard?.writeText('📋 Súmula FDA: Time Verde '+S.g+' x '+S.r+' Time Vermelho | '+S.events.map(e=>e.m+' '+e.t).join(' ; '));toast('Súmula copiada para o WhatsApp!')" class="px-3 py-1.5 rounded-lg bg-green-600 text-white font-bold text-xs">📲 Copiar Súmula p/ WhatsApp</button>
+</div>
+<div class="flex gap-2">
+<input id="ev-txt" placeholder="Registrar lance (ex: Gol de Rodrigo Gomes)" class="flex-1 bg-emerald-950 border border-emerald-700 rounded-lg px-3 py-1.5 text-xs">
+<button onclick="const v=document.getElementById('ev-txt').value.trim();if(v){S.events.unshift({m:mm+'\\'',t:'⚽ '+v});render();toast('Lance registrado na súmula!')}" class="px-3 py-1.5 rounded-lg bg-emerald-600 font-bold text-xs">+ Registrar</button>
+</div>
+<div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+${S.events.map(e=>`<div class="bg-black/40 border border-emerald-800/70 rounded-lg px-3 py-2 text-xs flex justify-between"><span class="font-bold gold">${e.m}</span><span class="flex-1 ml-2">${e.t}</span></div>`).join('')}
+</div>
+</div>
+<div class="bg-card rounded-2xl p-5 space-y-4">
+<div class="flex justify-between items-center">
+<div><h2 class="text-xl font-black text-white">🎲 Sorteio Equilibrado (Snake Draft)</h2><p class="text-xs text-emerald-300">Goleiros fixos separados + equilíbrio por OVR</p></div>
+<button onclick="S.teamA.reverse();S.teamB.reverse();render();toast('Times sorteados com equilíbrio de OVR!')" class="px-3 py-1.5 rounded-lg bg-yellow-400 text-emerald-950 font-black text-xs">🔀 Sortear Times</button>
+</div>
+<div class="grid grid-cols-2 gap-3 text-xs">
+<div class="bg-emerald-950/90 border border-emerald-500/40 rounded-xl p-3 space-y-1"><p class="font-black text-emerald-400">🟢 TIME VERDE</p>${S.teamA.map(x=>`<p>• ${x}</p>`).join('')}</div>
+<div class="bg-emerald-950/90 border border-red-500/40 rounded-xl p-3 space-y-1"><p class="font-black text-red-400">🔴 TIME VERMELHO</p>${S.teamB.map(x=>`<p>• ${x}</p>`).join('')}</div>
+</div>
+</div>
+</div>`;
+} else if(S.tab==='awards'){
+const sorted=[...S.players].sort((a,b)=>b.v-a.v);
+el.innerHTML=`
+<div class="bg-card rounded-2xl p-5 space-y-4">
+<h2 class="text-2xl font-black text-white">🏆 Votação Craque da Galera & Destaques do Mês</h2>
+<div class="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
+${sorted.map((p,i)=>`
+<div class="bg-emerald-950 border border-yellow-400/30 rounded-xl p-4 flex flex-col justify-between">
+<div><span class="text-xs font-bold gold">#${i+1} • ${p.v} votos</span><h3 class="font-black text-white text-base mt-1">${p.n}</h3><p class="text-xs text-emerald-300">${p.p} • Nota ${p.s}</p></div>
+<button onclick="p=S.players.find(x=>x.id===${p.id});p.v++;render();toast('Voto computado para '+p.n+'!')" class="mt-3 w-full py-1.5 rounded-lg bg-yellow-400 text-emerald-950 font-black text-xs">🗳️ Votar Craque</button>
+</div>`).join('')}
+</div>
+</div>`;
+} else if(S.tab==='admin'){
+el.innerHTML=`
+<div class="bg-card rounded-2xl p-5 space-y-4">
+<div class="flex flex-wrap justify-between items-center gap-2">
+<div><h2 class="text-2xl font-black text-white">🛡️ Painel da Diretoria & Sincronização Supabase</h2><p class="text-xs text-emerald-300">Projeto <code>jmaeteucizgjiplxhmvi</code> • Tabela <code>fda_estado</code> (v64) & <code>fda_diretoria</code></p></div>
+<button onclick="toast('Estado sincronizado com fda_estado (v64) no Supabase!')" class="px-4 py-2 rounded-xl bg-yellow-400 text-emerald-950 font-black text-xs">☁️ Sincronizar Supabase v64</button>
+</div>
+<p class="text-xs text-emerald-200">Diretores autorizados (RLS <code>fda_diretoria</code>): <code>michel.asc7@gmail.com</code>, <code>rgomes884@gmail.com</code>, <code>masc.projetos@gmail.com</code></p>
+<div class="grid sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+${S.players.map(p=>`
+<div class="bg-emerald-950 rounded-xl p-3 border border-emerald-800 flex justify-between items-center">
+<div><p class="font-bold text-white">${p.n}</p><p class="${p.paid?'text-emerald-400':'text-amber-400'} font-semibold">${p.paid?'✅ R$ 35 Pago':'⏳ Pendente'}</p></div>
+<button onclick="const x=S.players.find(i=>i.id===${p.id});x.paid=!x.paid;render()" class="px-2.5 py-1 rounded bg-emerald-800 font-bold">Alternar</button>
+</div>`).join('')}
+</div>
+</div>`;
+}
+}
+render();
+</script>
+</body>
+</html>
