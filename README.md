@@ -1,20 +1,27 @@
 # Futebol dos Amigos
 
-Projeto vinculado ao Supabase.
+Aplicação pública do FDA Xavante, com avisos, jornal, ranking, times, jogos e elenco. O site é estático, sem etapa de build; a camada de dados existente usa Supabase.
 
-## Detalhes do Supabase
-- **Project ID**: jmaeteucizgjiplxhmvi
-- **Project URL**: https://jmaeteucizgjiplxhmvi.supabase.co
-- **Organização**: M14 Company
+## Estrutura
 
-## Estrutura do Banco de Dados (Schema public)
-- `fda_estado`: (id int4, dados jsonb, versao int4, atualizado_em timestamptz)
-- `fda_diretoria`: (email text)
-- Funções: `rls_auto_enable`
+- `index.html`, `app.js` e `app.css`: interface pública e painel da diretoria.
+- `config.js` e `supabase.js`: configuração pública e cliente Supabase.
+- `supabase/migrations/`: histórico versionado do schema do banco.
+- `dados-iniciais.json` e `novidades.json`: cópias de referência usadas para inicialização e prévia local.
+- `assets/`: fotos das camisas e do troféu Bola Murcha, fornecidas pelo clube.
 
-## Histórico e Status do Projeto
-A equipe já iniciou as modificações e evoluções no projeto:
-- **Estado atual do banco de dados**: Versão 64 (tabela `fda_estado`).
-- **Módulos ativos em `fda_estado`**: `v`, `info`, `meses`, `posts`, `current`, `history`, `players`, `present`, `votacao`, `seedSeen`, `settings`.
-- **Inclusão na Diretoria**: Adicionado o e-mail `masc.projetos@gmail.com` à tabela `fda_diretoria` (junto com `michel.asc7@gmail.com` e `rgomes884@gmail.com`) concedendo permissão para salvar modificações no aplicativo.
-- **Integração Contínua**: Integração contínua ativa entre GitHub e Supabase.
+O app lê o estado público de `fda_estado`; alterações continuam restritas ao fluxo autenticado da diretoria, conforme o schema versionado. As cópias JSON devem conter apenas conteúdo que possa ser exibido publicamente.
+
+## Prévia local
+
+Na pasta do projeto, inicie um servidor estático, por exemplo:
+
+```sh
+python -m http.server 4173
+```
+
+Abra `http://127.0.0.1:4173/?snapshot=1` para visualizar a cópia de referência sem depender de uma conexão com o Supabase.
+
+## Publicação
+
+O projeto pode ser publicado por um host estático apontando para a raiz do repositório. Não há compilação nem dependências de instalação.
