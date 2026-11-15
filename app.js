@@ -511,7 +511,7 @@ var CREDITO={nome:'Michel Alessandro',frase:'Criação de sites personalizados p
 function creditHTML(){var C=CREDITO;return '<div class="credit"><p class="credit-n">Desenvolvido por <strong>'+esc(C.nome)+'</strong></p><p class="credit-f">'+esc(C.frase)+'</p>'+
   '<p class="credit-l"><a href="'+esc(C.instaUrl)+'" target="_blank" rel="noopener noreferrer" aria-label="Instagram de '+esc(C.nome)+', desenvolvedor do site (abre em nova aba)">'+esc(C.insta)+'</a>'+
   '<a href="mailto:'+esc(C.email)+'" aria-label="Enviar e-mail para '+esc(C.nome)+'">'+esc(C.email)+'</a></p></div>';}
-function footerHTML(){return '<footer class="foot-wrap"><p class="foot-t">Siga o '+esc(S.info.name)+'</p>'+socialHTML('foot')+'<p class="foot-s">'+esc((curField()||{}).name||'')+' · '+esc((curField()||{}).bairro||'')+'</p>'+creditHTML()+'</footer>';}
+function footerHTML(){return '<footer class="foot-wrap"><p class="foot-t">Siga o '+esc(S.info.name)+'</p>'+socialHTML('foot')+'<p class="credit-l"><a href="/diretoria/">Área da diretoria</a></p><p class="foot-s">'+esc((curField()||{}).name||'')+' · '+esc((curField()||{}).bairro||'')+'</p>'+creditHTML()+'</footer>';}
 function header(bare){
   var dn=new Date(),dl=dn.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}),dsh=dn.toLocaleDateString('pt-BR',{weekday:'short',day:'numeric',month:'short'});
   var hd='<header class="top"><div class="top-in">'+(S.info.logo?'<img class="logo" src="'+S.info.logo+'" alt="Escudo">':'')+'<div class="brand"><h1>'+esc(S.info.name)+'</h1><p class="sub"><span class="d-l">'+esc(dl)+'</span><span class="d-s">'+esc(dsh)+'</span></p></div></div>'+socialHTML('top')+'</header>';
