@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /diretoria/
+
+Sitemap: https://futeboldosamigos2015.netlify.app/sitemap.xml
