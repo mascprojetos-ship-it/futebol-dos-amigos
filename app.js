@@ -38,7 +38,8 @@ function defInfo(){return {redes:{instagram:'https://www.instagram.com/futeboldo
   {id:'n2',text:'Chegue até as 5h40 para garantir a titularidade.'},
   {id:'n3',text:'Mensalidade em dia: pagamento até o dia 10 de cada mês.'}],festa:FESTA_11};}
 var FESTA_11={date:'2026-11-22',deadline:'2026-11-15',local:'Espaço Casa de Pedra em Xavantes (próximo ao campo do Imperial)',pix:'0e1e4a25-fdd3-49c3-b94b-5c0cf172e067',family:200,individual:100};
-function dateBR(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
+var DAY_IN_BRAZIL=new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'});
+function dateBR(value){return DAY_IN_BRAZIL.format(value==null?new Date():new Date(value));}
 function validDay(s){return /^\d{4}-\d{2}-\d{2}$/.test(s||'')?s:'';}
 function noticeDay(n){
   if(n.expires)return n.expires;
@@ -156,11 +157,12 @@ function loadSnapshot(){
     });
   }).then(function(d){
     S=normalize(d);S.savedAt=0;rowVersion=0;dirty=false;mode='readonly';ui.role='public';ui.loading=false;ui.fatal=null;ui.offline=true;
-    if(!ui.tabTouched)ui.tab='avisos';return applySeeds(false);
+    if(!ui.tabTouched)ui.tab='avisos';render();return applySeeds(false);
   }).catch(function(){ui.loading=false;ui.fatal='Não consegui abrir a cópia local dos dados. Tente novamente.';render();});
 }
-function openDirectorSession(session){
+function openDirectorSession(session,quiet){
   if(!session||!session.user||!session.user.email){
+    mode='readonly';
     ui.login=true;
     ui.loading=false;
     render();
@@ -168,6 +170,7 @@ function openDirectorSession(session){
   }
   return SB.from('fda_diretoria').select('email').limit(1).maybeSingle().then(function(result){
     if(result.error||!result.data){
+      mode='readonly';
       ui.login=true;
       ui.loading=false;
       ui.loginErr=result.error?'Não consegui confirmar o acesso. Tente novamente.':'Esta conta não está cadastrada na diretoria.';
@@ -176,8 +179,9 @@ function openDirectorSession(session){
     }
     ui.login=false;
     ui.user=session.user.email;
-    return load();
+    return load(quiet);
   },function(){
+    mode='readonly';
     ui.login=true;
     ui.loading=false;
     ui.loginErr='Sem conexão para confirmar o acesso. Tente novamente.';
@@ -191,8 +195,19 @@ function init(){
     if(!window.supabase||!window.supabase.createClient){ui.fatal='Não consegui carregar o sistema. Verifique a internet e recarregue a página.';render();return;}
     SB=window.supabase.createClient(CFG.url,CFG.chave);
     SB.auth.getSession().then(function(r){return openDirectorSession(r&&r.data&&r.data.session);},function(){return openDirectorSession(null);});
-  }else{mode='readonly';ui.role='public';load();}
-  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&!dirty&&!ui.login&&!ui.postDraft&&!ui.editGame&&!ui.fatal&&!ui.loading)load(true);});
+  }else{
+    mode='readonly';ui.role='public';load();
+    setInterval(refreshPublic,20000);
+    window.addEventListener('online',refreshPublic);
+  }
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState!=='visible'||dirty||ui.login||ui.postDraft||ui.editGame||ui.fatal||ui.loading)return;
+    if(SITE==='diretoria'){
+      SB.auth.getSession().then(function(result){
+        return openDirectorSession(result&&result.data&&result.data.session,true);
+      },function(){return openDirectorSession(null,true);});
+    }else refreshPublic();
+  });
 }
 function explainErr(e){
   var code=String(e.code||''),msg=String(e.message||''),det=' (código: '+(code||'?')+(msg?' · '+msg.slice(0,120):'')+')';
@@ -238,36 +253,47 @@ function seedsRun(persist){
     else render();
   });
 }
-/* Leitura pública leve: sem baixar a biblioteca do Supabase. Se falhar por qualquer motivo, carrega a biblioteca como antes. */
-function pubFetch(){
-  return fetch(CFG.url+'/rest/v1/fda_estado?select=dados,versao&id=eq.1',{headers:{apikey:CFG.chave,Accept:'application/vnd.pgrst.object+json'}}).then(function(r){return r.json().then(function(j){return r.ok&&j&&typeof j==='object'?{data:j,error:null}:{data:null,error:{code:(j&&j.code)||String(r.status),message:(j&&j.message)||''}};});});
-}
-function useLib(){
-  return new Promise(function(res,rej){
-    if(SB){res();return;}
-    var mk=function(){try{SB=window.supabase.createClient(CFG.url,CFG.chave);res();}catch(e){rej(e);}};
-    if(window.supabase&&window.supabase.createClient){mk();return;}
-    var s=document.createElement('script');s.src='/supabase.js';s.onload=mk;s.onerror=function(){rej(new Error('Load failed'));};document.head.appendChild(s);
-  });
+/* A leitura pública usa apenas a chave publicável, mesmo neste navegador quando há sessão da diretoria. */
+async function pubFetch(columns){
+  var options={cache:'no-store',headers:{apikey:CFG.chave,Accept:'application/vnd.pgrst.object+json'}};
+  if(typeof AbortSignal!=='undefined'&&AbortSignal.timeout)options.signal=AbortSignal.timeout(10000);
+  var response=await fetch(CFG.url+'/rest/v1/fda_estado?select='+(columns||'dados,versao')+'&id=eq.1',options);
+  var row=await response.json();
+  return response.ok&&row&&typeof row==='object'?{data:row,error:null}:{data:null,error:{code:String(response.status)}};
 }
 function fetchRow(){
-  var viaLib=function(){return useLib().then(function(){return SB.from('fda_estado').select('dados,versao').eq('id',1).single();});};
-  if(SB)return SB.from('fda_estado').select('dados,versao').eq('id',1).single();
-  return pubFetch().then(function(r){return (!r.error&&r.data&&r.data.dados)?r:viaLib();},viaLib);
+  return SITE==='diretoria'?SB.from('fda_estado').select('dados,versao').eq('id',1).single():pubFetch();
+}
+var publicRefreshBusy=false;
+function publicVideoOpen(){return !!document.querySelector('.video-card video,.video-card iframe');}
+async function refreshPublic(){
+  if(SITE!=='publico'||localSnapshotRequested()||publicRefreshBusy||ui.loading||document.hidden||publicVideoOpen())return;
+  publicRefreshBusy=true;
+  try{
+    var check=await pubFetch('versao');
+    if(!check.error&&Number.isInteger(check.data?.versao)&&(ui.offline||check.data.versao>rowVersion)&&!publicVideoOpen())await load(true);
+  }catch(error){
+    // A falha temporária não substitui os dados que já estavam na tela.
+  }finally{
+    if(['tv','lances'].includes(ui.tab)&&!publicVideoOpen())loadVideoLibrary(true);
+    publicRefreshBusy=false;
+  }
 }
 function load(quiet){
   if(!quiet){ui.loading=true;render();}
   return fetchRow().then(function(r){
-    if(r.error){if(SITE==='publico')return loadSnapshot();ui.loading=false;if(!quiet){ui.fatal=explainErr(r.error);}render();return;}
+    if(quiet&&SITE==='diretoria'&&(dirty||ui.busy||ui.voting||ui.postDraft||ui.editGame||ui.videoDraft||ui.videoSaving))return;
+    if(r.error){if(SITE==='publico'){if(!quiet)return loadSnapshot();return;}ui.loading=false;if(!quiet){ui.fatal=explainErr(r.error);}render();return;}
     var row=r.data||{};
-    if(quiet&&row.versao===rowVersion)return;
+    if(quiet&&(row.versao<rowVersion||(row.versao===rowVersion&&!ui.offline)))return;
+    if(SITE==='publico'&&(!row.dados||(quiet&&publicVideoOpen()))){if(!quiet)return loadSnapshot();return;}
     rowVersion=row.versao||0;
     if(!row.dados&&SITE==='diretoria')return importInitial();
     S=normalize(row.dados);S.savedAt=rowVersion;dirty=false;ui.loading=false;ui.fatal=null;ui.offline=false;
     if(SITE==='diretoria'){mode='shared';ui.role='editor';applyDraft();if(!quiet)applySeeds(true);}
     else{if(!ui.tabTouched)ui.tab='avisos';if(!quiet)applySeeds(false);}
     render();
-  },function(err){if(SITE==='publico')return loadSnapshot();ui.loading=false;ui.fatal=explainErr({message:String(err&&err.message||err)});render();});
+  },function(err){if(SITE==='publico'){if(!quiet)return loadSnapshot();return;}ui.loading=false;ui.fatal=explainErr({message:String(err&&err.message||err)});render();});
 }
 function importInitial(){
   return fetch('/dados-iniciais.json',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(d){
@@ -348,6 +374,7 @@ function snakeDraft(players,count){
 }
 function ratingOrder(a,b){return b.stars-a.stars||(PORD[a.pos]??6)-(PORD[b.pos]??6)||a.name.localeCompare(b.name,'pt-BR')||a.id.localeCompare(b.id);}
 function doDraw(auto){
+  if(!canEditUi())return;
   var pres=S.players.filter(function(p){return S.present.indexOf(p.id)>=0;});
   var err=validateDraw(pres.length,S.settings.teams);if(err){toast(err);return;}
   var T=S.settings.teams,roles={},order=S.present.slice();
@@ -374,7 +401,7 @@ function updateDrawPresence(){
   },300);
 }
 function confirmDraw(){
-  if(!S.current)return;
+  if(!canEditUi()||!S.current)return;
   var mk=S.current.month||ui.sortMes||curMonthKey(),old=S.meses[mk];
   S.meses[mk]={teams:S.current.teams.map(function(t){return t.slice();}),campeao:old?old.campeao:null};
   S.current.confirmed=true;S.current.month=mk;
@@ -458,13 +485,19 @@ function header(bare){
     (bare?'':'<button type="button" class="header-action" data-act="tab" data-tab="jogadores" aria-label="Encontrar perfil de atleta"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 20v-2a7 7 0 0 1 14 0v2"/></svg></button>')+'</header>';
   if(bare)return hd;
   return hd+'<nav class="tabs" id="fda-nav" tabindex="-1" aria-label="Seções do site">'+
-  tab('avisos','📣','Avisos')+tab('jornal','📰','Jornal')+tab('ranking','🏆','Ranking')+(canEditUi()?tab('votacao','🗳️','Votação'):'')+(canEditUi()?tab('sorteio','🎲','Sorteio'):tab('sorteio','👕','Times'))+tab('jogos','📋','Jogos')+tab('jogadores','👥','Elenco')+'</nav>';
+  tab('avisos','','Clube')+tab('tv','','FDA TV')+tab('jogadores','','Elenco & Scouts')+tab('times','','Times')+tab('lances','','Resenha & Lances')+
+  (canEditUi()?tab('sorteio','','Sorteio & Jogo')+tab('votacao','','Votação & Mês')+tab('jogos','','Súmulas'):'')+
+  '<a class="director-tab" href="/diretoria/"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">'+NAV_ICONS.diretoria+'</svg><span class="tl">Diretoria</span></a></nav>';
 }
 var NAV_ICONS={
+  tv:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="m9 3 3 3 3-3m-1 7-4 2.5 4 2.5z"/>',
+  lances:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="m10 8 6 4-6 4z"/>',
+  diretoria:'<path d="M5 9V7a7 7 0 0 1 14 0v2"/><rect x="4" y="9" width="16" height="12" rx="2"/><path d="M12 13v4"/>',
   avisos:'<path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
   jornal:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/>',
   ranking:'<path d="M8 21h8m-4-5v5M8 3h8v7a4 4 0 0 1-8 0V3Zm0 3H4v2a4 4 0 0 0 4 4m8-6h4v2a4 4 0 0 1-4 4"/>',
   sorteio:'<path d="m8 4-5 3 2 5 3-1v9h8v-9l3 1 2-5-5-3c0 4-8 4-8 0Z"/>',
+  times:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 5v14M3 9h3v6H3m18-6h-3v6h3"/><circle cx="12" cy="12" r="2.5"/>',
   jogos:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4m8-4v4M4 10h16m-12 5h8"/>',
   jogadores:'<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2m3-15a3 3 0 0 1 0 6m0 3a5 5 0 0 1 3 4v2"/>',
   votacao:'<rect x="4" y="9" width="16" height="12" rx="2"/><path d="m8 7 4-4 4 4m-8 7 3 3 5-5"/>'
@@ -662,7 +695,10 @@ async function castVote(rodada){
 }
 function viewVotacao(){
   if(!canEditUi())return '';
-  var upH=upcomingVoteHTML();
+  var current=monthKey(juriGame()?.date||Date.now()),summary=monthStandings(current);
+  var upH='<section class="card month-vote-summary"><h2>Votação &amp; Mês</h2><p>'+esc(monthLabel(current,true))+'</p><dl>'+
+    '<div><dt>Jogos válidos</dt><dd>'+summary.jogos+'</dd></div><div><dt>Vitórias do Vermelho</dt><dd>'+summary.w[0]+'</dd></div>'+
+    '<div><dt>Vitórias do Verde</dt><dd>'+summary.w[1]+'</dd></div><div><dt>Empates</dt><dd>'+summary.e+'</dd></div></dl></section>'+upcomingVoteHTML();
   if(!S.history.length)return upH+'<p class="empty">A votação aparece depois da primeira pelada confirmada no Sorteio.</p>'+criteriosHTML(false);
   var g=juriGame();if(!g)return upH;
   var gd=function(x){return new Date(x.date).toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'});};
@@ -1089,7 +1125,7 @@ function viewJogos(){
     h+='<section class="card hist'+(open?' open':'')+'"><div class="row-between"><h3>'+esc(d)+(gf?'<small class="gcampo">📍 '+esc(gf.name.replace(/^Campo d[oa] /,''))+'</small>':'')+'</h3>'+(ed?'<button type="button" class="del'+(ui.confirmDel===g.id?' sure':'')+'" data-act="delHist" data-id="'+g.id+'" aria-label="Apagar pelada">'+(ui.confirmDel===g.id?'Apagar?':'✕')+'</button>':'')+'</div>';
     if(g.placar)h+=scoreboardHTML(g);
     if(g.obs&&!open)h+='<p class="obs">📝 '+esc(g.obs).replace(/\n/g,'<br>')+'</p>';
-    if(g.juri&&g.juri.final&&g.juri.votos.length&&!open)h+='<details class="vres"><summary>🗳️ Votação ('+g.juri.votos.length+' votos)</summary>'+apurHTML(g,'cheia','🏆 Bola cheia (craque)',false)+apurHTML(g,'murcha','🎈 Bola murcha',false)+'</details>';
+    if(ed&&g.juri&&g.juri.final&&g.juri.votos.length&&!open)h+='<details class="vres"><summary>Apuração ('+g.juri.votos.length+' votos)</summary>'+apurHTML(g,'cheia','Bola cheia (craque)',false)+apurHTML(g,'murcha','Bola murcha',false)+'</details>';
     var ros=gameRoster(g);
     if(g.cheia||g.murcha||sm.g||sm.a||ros.length||g.adv){
       h+='<div class="gsum">';
@@ -1715,9 +1751,9 @@ function teamsBlock(inAvisos){
     h+='<div class="tw-grid">'+teams.map(function(t,i){var col=COLORS[i%COLORS.length];return '<div class="tw-team" style="--bib:'+col.c+';--bibt:'+col.t+'"><div class="tw-h">'+teamArt('shirt',i)+'<span>'+col.n+'</span><small>'+t.length+'</small></div><ul>'+t.map(function(p){return '<li'+(hitIds[p.id]?' class="me"':'')+'>'+kitAvatar(p,26,i)+'<span class="nm">'+nameLink(p,p.id)+'</span>'+(p.pos==='G'?'<span class="pb pb-g">GOL</span>':'')+'</li>';}).join('')+'</ul></div>';}).join('')+'</div>';
     if(!canEditUi())h+='<button type="button" class="btn wide primary" style="margin-top:14px" data-act="tab" data-tab="sorteio">Ver escalação completa e campinho tático →</button>';
   }else{
-    var vw=ui.timesView==='campo'?'campo':'lista';
-    h+='<div class="vtoggle" role="group" aria-label="Forma de visualizar os times"><button type="button" data-act="timesView" data-v="lista" aria-pressed="'+(vw==='lista')+'">📋 Lista de Atletas</button><button type="button" data-act="timesView" data-v="campo" aria-pressed="'+(vw==='campo')+'">⚽ Campinho Tático</button></div>';
-    if(vw==='lista')h+='<div class="tw-grid full">'+teams.map(function(t,i){var col=COLORS[i%COLORS.length];return '<article class="tw-team" style="--bib:'+col.c+';--bibt:'+col.t+'">'+lineupKit(t,i,L.month)+teamSectionsHTML(t,hitIds,i)+'</article>';}).join('')+'</div>';
+    var vw=ui.timesView==='lista'?'lista':'campo';
+    h+='<div class="vtoggle" role="group" aria-label="Forma de visualizar os times"><button type="button" data-act="timesView" data-v="campo" aria-pressed="'+(vw==='campo')+'">Campinho tático</button><button type="button" data-act="timesView" data-v="lista" aria-pressed="'+(vw==='lista')+'">Lista completa</button></div>';
+    if(vw==='lista')h+='<div class="tw-grid full">'+teams.map(function(t,i){var col=COLORS[i%COLORS.length];return '<article class="tw-team" style="--bib:'+col.c+';--bibt:'+col.t+'">'+lineupKit(t,i)+teamSectionsHTML(t,hitIds,i)+'</article>';}).join('')+'</div>';
     else h+=campoHTML(teams,hitIds,L.month);
   }
   h+='<p class="note-arr">📅 Os mesmos times jogam todos os domingos de '+monthName(L.month)+'. ⏰ Em cada time, os '+S.settings.starters+' primeiros a chegar começam jogando.</p></section>';
@@ -1860,33 +1896,30 @@ function identHTML(){
   return '<section class="ident" aria-label="Identidade do Futebol dos Amigos"><div><b>'+FUND+'</b><span>Ano de fundação</span></div><div><b>'+yrs+'</b><span>Anos de tradição</span></div><div><b>'+S.players.length+'</b><span>Atletas no elenco</span></div><div><b class="txt">Todo domingo</b><span>Frequência</span></div></section>';
 }
 
-function lineupKit(players,index,month){
+function lineupKit(players,index){
   var team=COLORS[index%COLORS.length],label=index<2?'Manto '+team.n:team.n;
-  var featured=index===0&&month==='2026-11'&&players.find(function(p){return p&&norm(p.name)==='magaiver';});
   return '<div class="lineup-team'+(index===0?' lineup-red':index===1?' lineup-green':'')+'">'+teamArt('shirt',index)+
-    '<div><strong>'+label+'</strong><span class="lineup-count">'+players.length+' atletas</span>'+
-    (featured?'<span class="lineup-name">'+nameLink(featured,featured.id)+'</span>':'')+'</div></div>';
+    '<div><strong>'+label+'</strong><span class="lineup-count">'+players.length+' atletas</span></div></div>';
 }
 function lineupBrief(){
   var month=curMonthKey(),teams=monthTeams(month);
   if(!teams&&monthTeams('2026-11')){month='2026-11';teams=monthTeams(month);}
   if(!teams)return '<section class="card lineup-brief"><h2>Escalação</h2><p class="meta">Aguardando confirmação da diretoria.</p></section>';
   return '<section class="card lineup-brief"><h2>Escalação de '+esc(monthName(month))+'</h2><p class="meta">Confirmada pela diretoria</p>'+
-    teams.map(function(ids,index){return lineupKit(ids.map(byId).filter(Boolean),index,month);}).join('')+
+    teams.map(function(ids,index){return lineupKit(ids.map(byId).filter(Boolean),index);}).join('')+
     '<button type="button" class="btn wide" data-act="openLineup" data-month="'+month+'">Ver escalação completa</button></section>';
 }
 function broadcastTicker(){
   var messages=['Chegada às '+S.info.arrival];
   var teams=monthTeams('2026-11');
   if(teams){
-    var red=teams[0].map(byId).some(function(p){return p&&norm(p.name)==='magaiver';});
-    messages.push('Novembro confirmado: '+teams[0].length+' Vermelho × '+teams[1].length+' Verde'+(red?' · Magaiver no Vermelho':''));
+    messages.push('Novembro confirmado: '+teams[0].length+' Vermelho × '+teams[1].length+' Verde');
   }
   var latest=S.history.find(function(game){return game.cheia||game.murcha;});
   if(latest&&latest.cheia)messages.push('Craque da rodada: '+personOf(latest,latest.cheia).name);
   if(latest&&latest.murcha)messages.push('Bola Murcha: '+personOf(latest,latest.murcha).name);
   var strip='<span class="ticker-strip">'+messages.map(function(message){return '<span>'+esc(message)+'</span>';}).join('')+'</span>';
-  return '<aside class="broadcast-ticker" aria-label="Boletim FDA TV"><strong class="ticker-brand"><i></i>FDA TV · AO VIVO</strong>'+
+  return '<aside class="broadcast-ticker" aria-label="Giro da FDA TV"><strong class="ticker-brand"><i></i>FDA TV · GIRO</strong>'+
     '<div class="ticker-window" tabindex="0"><div class="ticker-track">'+strip+'<span aria-hidden="true">'+strip+'</span></div></div>'+
     '<button type="button" class="ticker-switch" data-act="tickerMotion" aria-pressed="'+!!ui.tickerPaused+'">Pausar letreiro</button></aside>';
 }
@@ -1895,7 +1928,10 @@ function viewAvisos(){
   var days=Math.round((new Date(ng.getFullYear(),ng.getMonth(),ng.getDate())-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/86400000);
   var when=days===0?(ng>now?'Hoje':'Rolando agora'):days===1?'Amanhã':'Em '+days+' dias';
   var due=nextDue(),dd=Math.round((new Date(due.getFullYear(),due.getMonth(),due.getDate())-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/86400000);
-  var h=partyCard()+'<div class="broadcast-grid">'+matchCenter()+lineupBrief()+'</div>'+latestResultHTML()+fieldCard(ed)+pinnedTeaser();
+  var h='<section class="club-intro"><div><h2>O clube</h2><p>Domingos no '+esc((curField()||{}).name||'campo')+', em Belford Roxo.</p></div><div class="btnrow">'+
+    '<button type="button" class="btn primary" data-act="tab" data-tab="tv">Assistir à FDA TV</button><button type="button" class="btn" data-act="tab" data-tab="lances">Ver os lances</button></div></section>'+
+    '<div class="broadcast-grid">'+matchCenter()+lineupBrief()+'</div>'+partyCard()+latestResultHTML()+
+    '<div class="btnrow"><button type="button" class="btn" data-act="tab" data-tab="jogos">Histórico de jogos</button><button type="button" class="btn" data-act="openJournal">Notícias do clube</button></div>'+fieldCard(ed)+pinnedTeaser();
   h+='<section class="card due'+(dd<=3?' soon':'')+'"><div><h2>Mensalidade</h2><p>Pagamento até o dia '+I.feeDay+' de cada mês.</p></div><div class="due-box"><span class="big">'+due.getDate()+'/'+String(due.getMonth()+1).padStart(2,'0')+'</span><span>'+(dd===0?'vence hoje':dd===1?'vence amanhã':'faltam '+dd+' dias')+'</span></div></section>';
   h+='<section class="card" id="notices-section"><h2>Avisos e regras</h2>';
   if(!I.notices.length)h+='<p class="hint">Nenhum aviso no momento.</p>';
@@ -2165,20 +2201,236 @@ function readBig(file){
     fr.readAsDataURL(file);
   });
 }
-function openPost(id){ui.tab='jornal';ui.tabTouched=true;render();setTimeout(function(){var el=document.getElementById('post-'+id);if(el)el.scrollIntoView({block:'start'});},30);}
+function openPost(id){ui.tab='lances';ui.lancesView='jornal';ui.tabTouched=true;render();setTimeout(function(){var el=document.getElementById('post-'+id);if(el)el.scrollIntoView({block:'start'});},30);}
 
 function findGame(id){for(var i=0;i<S.history.length;i++)if(S.history[i].id===id)return S.history[i];return null;}
 
+var VIDEO_CATEGORIES={lance:'Lance',gol:'Gol',resenha:'Resenha'};
+var VIDEO_BUCKET='fda-videos';
+var videoLibrary={items:null,busy:false,error:false};
+function secureVideoLink(value){
+  try{
+    var url=new URL(value);
+    return url.protocol==='https:'&&!url.username&&!url.password&&url.href.length<=500?url.href:'';
+  }catch(e){return '';}
+}
+function youtubeId(link){
+  if(!link)return '';
+  var url=new URL(link),id='';
+  if(url.hostname==='youtu.be')id=url.pathname.split('/')[1];
+  if(['youtube.com','www.youtube.com','m.youtube.com'].includes(url.hostname)){
+    id=url.pathname==='/watch'?url.searchParams.get('v'):url.pathname.match(/^\/(?:shorts|embed|live)\/([^/]+)/)?.[1];
+  }
+  return /^[\w-]{11}$/.test(id||'')?id:'';
+}
+function loadVideoLibrary(force){
+  if(videoLibrary.busy||(!force&&(videoLibrary.items||videoLibrary.error)))return;
+  videoLibrary.busy=true;
+  var wasError=videoLibrary.error,updated=false;
+  return fetch(CFG.url+'/rest/v1/fda_videos?select=id,titulo,descricao,categoria,url,arquivo,criado_em&order=criado_em.desc,id.desc&limit=100',{cache:'no-store',headers:{apikey:CFG.chave}})
+    .then(function(response){if(!response.ok)throw Error('Videoteca indisponível');return response.json();})
+    .then(function(items){
+      if(!Array.isArray(items))throw Error('Resposta inválida');
+      updated=JSON.stringify(items)!==JSON.stringify(videoLibrary.items);
+      videoLibrary.items=items;videoLibrary.error=false;
+    })
+    .catch(function(){videoLibrary.error=true;})
+    .finally(function(){
+      videoLibrary.busy=false;
+      if((updated||wasError!==videoLibrary.error)&&!ui.videoSaving&&!ui.videoDraft&&!publicVideoOpen()&&['tv','lances'].includes(ui.tab))render();
+    });
+}
+function videoItems(){
+  var items=(videoLibrary.items||[]).slice();
+  var seen=new Set(items.map(function(item){return secureVideoLink(item.url);}).filter(Boolean));
+  S.posts.forEach(function(post){
+    post.links.forEach(function(link,i){
+      var url=secureVideoLink(link.url);
+      if(!url||seen.has(url))return;
+      seen.add(url);
+      items.push({id:'post-'+post.id+'-'+i,titulo:link.label||post.title||'Vídeo do Jornal',descricao:'',categoria:post.cat==='murcha'?'resenha':'lance',url:url});
+    });
+  });
+  return items;
+}
+function videoCard(item){
+  var id=esc(item.id),link=secureVideoLink(item.url),youtube=youtubeId(link);
+  var uploaded=/^[0-9a-f-]{36}\.(mp4|webm)$/.test(item.arquivo||'');
+  var opened=ui.playVideo===item.id;
+  var media=uploaded&&opened?'<video controls playsinline preload="metadata" src="'+esc(CFG.url+'/storage/v1/object/public/'+VIDEO_BUCKET+'/'+item.arquivo)+'"></video>':
+    youtube&&opened?'<iframe src="https://www.youtube-nocookie.com/embed/'+youtube+'" title="'+esc(item.titulo)+'" allow="fullscreen; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>':
+    (uploaded||youtube?'<button class="video-cover" type="button" data-act="playVideo" data-id="'+id+'" aria-label="Assistir '+esc(item.titulo)+'"><span aria-hidden="true">▶</span>Assistir aqui</button>':
+      (link?'<a class="video-cover" href="'+esc(link)+'" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">↗</span>Abrir vídeo original</a>':''));
+  var managed=!item.id.startsWith('post-')&&canEditUi();
+  return '<article class="card video-card">'+media+'<div class="video-copy"><small>'+esc(VIDEO_CATEGORIES[item.categoria]||'Lance')+'</small><h3>'+esc(item.titulo)+'</h3>'+
+    (item.descricao?'<p>'+esc(item.descricao)+'</p>':'')+(opened?'<button type="button" class="btn sm" data-act="closeVideo">Fechar vídeo</button>':'')+(managed?'<div class="btnrow tight"><button type="button" class="btn sm" data-act="editVideo" data-id="'+id+'">Editar vídeo</button>'+
+    '<button type="button" class="btn sm danger-t" data-act="removeVideo" data-id="'+id+'">'+(ui.confirmVideo===item.id?'Confirmar remoção':'Remover')+'</button></div>':'')+'</div></article>';
+}
+function videoEditor(){
+  var d=ui.videoDraft||{};
+  return '<form class="card video-editor" id="video-editor"><h3>'+(d.id?'Editar vídeo':'Publicar vídeo')+'</h3>'+
+    '<label class="field">Título<input name="titulo" required maxlength="100" value="'+esc(d.titulo||'')+'"></label>'+
+    '<label class="field">Descrição<textarea name="descricao" maxlength="400" rows="2">'+esc(d.descricao||'')+'</textarea></label>'+
+    '<label class="field">Categoria<select name="categoria">'+Object.entries(VIDEO_CATEGORIES).map(function([key,label]){return '<option value="'+key+'"'+(d.categoria===key?' selected':'')+'>'+label+'</option>';}).join('')+'</select></label>'+
+    (d.arquivo?'<p>Arquivo já publicado. Para substituir, cadastre outro vídeo.</p>':
+      '<label class="field">Link do YouTube, Instagram ou outro vídeo<input name="url" type="url" maxlength="500" value="'+esc(d.url||'')+'"></label>')+
+    (!d.id?'<label class="field">Ou envie um arquivo MP4 ou WebM de até 25 MB<input name="arquivo" type="file" accept="video/mp4,video/webm,.mp4,.webm"></label>':'')+
+    '<div class="btnrow"><button class="btn primary" type="submit">'+(d.id?'Salvar vídeo':'Publicar na videoteca')+'</button><button class="btn" type="button" data-act="cancelVideo">Cancelar</button></div><p class="video-status" role="status"></p></form>';
+}
+async function publishVideo(form){
+  if(!canEditUi()||!SB||!ui.videoDraft||ui.videoSaving)return;
+  var values=new FormData(form),draft=ui.videoDraft,input=values.get('arquivo');
+  var titulo=String(values.get('titulo')||'').trim(),descricao=String(values.get('descricao')||'').trim(),categoria=String(values.get('categoria')||'');
+  var rawUrl=String(values.get('url')||'').trim(),url=secureVideoLink(rawUrl),arquivo=draft.arquivo||null,created=null;
+  var file=input&&input.size?input:null,kind=file&&file.type;
+  var status=form.querySelector('.video-status');
+  if(!titulo||!VIDEO_CATEGORIES[categoria]){status.textContent='Preencha o título e a categoria.';return;}
+  if(rawUrl&&!url){status.textContent='Use um link HTTPS completo.';return;}
+  if(!arquivo&&Number(!!url)+Number(!!file)!==1){status.textContent='Escolha um arquivo ou informe um link.';return;}
+  if(file&&(!['video/mp4','video/webm'].includes(kind)||file.size>26214400)){status.textContent='Envie MP4 ou WebM de até 25 MB.';return;}
+  ui.videoSaving=true;status.textContent=file?'Enviando vídeo…':'Salvando…';
+  form.querySelectorAll('button').forEach(function(button){button.disabled=true;});
+  try{
+    if(file){
+      created=window.crypto.randomUUID()+(kind==='video/mp4'?'.mp4':'.webm');
+      var upload=await SB.storage.from(VIDEO_BUCKET).upload(created,file,{contentType:kind,upsert:false});
+      if(upload.error){created=null;throw upload.error;}
+      arquivo=created;
+    }
+    var row={titulo:titulo,descricao:descricao,categoria:categoria,url:arquivo?null:url,arquivo:arquivo};
+    var request=draft.id?SB.from('fda_videos').update(row).eq('id',draft.id):SB.from('fda_videos').insert(row);
+    var result=await request.select('id').single();
+    if(result.error)throw result.error;
+    ui.videoDraft=null;created=null;
+    loadVideoLibrary(true);
+    toast(draft.id?'Vídeo atualizado.':'Vídeo publicado na videoteca.');
+  }catch(err){
+    if(created)try{await SB.storage.from(VIDEO_BUCKET).remove([created]);}catch(cleanup){}
+    status.textContent='Não foi possível salvar o vídeo. Confira a conexão, o limite e sua permissão.';
+  }finally{
+    ui.videoSaving=false;
+    form.querySelectorAll('button').forEach(function(button){button.disabled=false;});
+  }
+}
+async function removeVideo(id){
+  if(!canEditUi()||!SB||ui.videoSaving)return;
+  var item=(videoLibrary.items||[]).find(function(v){return v.id===id;});
+  if(!item)return;
+  if(ui.confirmVideo!==id){ui.confirmVideo=id;render();return;}
+  ui.videoSaving=true;
+  try{
+    var removed=await SB.from('fda_videos').delete().eq('id',id).select('id').single();
+    if(removed.error)throw removed.error;
+    var stored=item.arquivo?await SB.storage.from(VIDEO_BUCKET).remove([item.arquivo]):null;
+    ui.confirmVideo=null;
+    loadVideoLibrary(true);
+    toast(stored&&stored.error?'Vídeo removido da lista. O arquivo ainda está no armazenamento.':'Vídeo removido.');
+  }catch(error){toast('Não foi possível remover o vídeo.');}
+  finally{ui.videoSaving=false;}
+}
+function viewLances(){
+  var journal=ui.lancesView==='jornal',ed=canEditUi();
+  var h='<header class="portal-heading"><h2>Resenha &amp; Lances</h2><p>Vídeos e notícias das rodadas.</p></header><div class="btnrow">'+
+    '<button type="button" class="chip" data-act="lancesView" data-v="videos" aria-pressed="'+!journal+'">Vídeos</button>'+
+    '<button type="button" class="chip" data-act="lancesView" data-v="jornal" aria-pressed="'+journal+'">Jornal</button></div>';
+  if(journal)return h+viewJornal();
+  if(ed)h+=ui.videoDraft?videoEditor():'<button class="btn primary" type="button" data-act="newVideo">Subir vídeo ou adicionar link</button>';
+  var selected=ui.videoFilter||'todos';
+  h+='<div class="catpick" role="group" aria-label="Tipos de vídeo">'+Object.entries({todos:'Todos',...VIDEO_CATEGORIES}).map(function([key,label]){return '<button type="button" class="chip" data-act="videoFilter" data-v="'+key+'" aria-pressed="'+(selected===key)+'">'+label+'</button>';}).join('')+'</div>';
+  var items=videoItems().filter(function(item){return selected==='todos'||item.categoria===selected;});
+  if(videoLibrary.error)h+='<p class="hint">A videoteca não respondeu. <button class="link" data-act="retryVideos">Tentar de novo</button></p>';
+  return h+(items.length?'<div class="video-grid">'+items.map(videoCard).join('')+'</div>':
+    '<p class="empty">'+(videoLibrary.busy?'Carregando vídeos…':'Nenhum vídeo nesta categoria.')+'</p>');
+}
+function viewTV(){
+  var items=videoItems();
+  var featured=items.find(function(item){return item.categoria==='gol';})||items[0];
+  return '<section id="fda-screen" class="tv-screen"><header class="portal-heading"><div><h2>FDA TV</h2><p>Placar, destaques e vídeos da pelada.</p></div><button type="button" class="btn" data-act="tvFullscreen">Modo telão</button></header>'+
+    latestResultHTML()+awardsTV()+(featured?'<h3>Em destaque</h3>'+videoCard(featured):'')+
+    '<button type="button" class="btn" data-act="tab" data-tab="lances">Abrir videoteca</button></section>';
+}
+function scoutParticipation(games,month){
+  var total=0,counts=new Map();
+  games.forEach(function(game){
+    if(!game.cob.e||game.adv||dateBR(game.date).slice(0,7)!==month||!game.teams[0]?.length||!game.teams[1]?.length)return;
+    total++;
+    var sides=game.teams.slice(0,2).map(function(team){return new Set(team.map(function(id){return rid(game,id);}));});
+    sides.forEach(function(team,i){
+      team.forEach(function(id){
+        if(sides[1-i].has(id))return;
+        var pair=counts.get(id)||[0,0];
+        pair[i]++;
+        counts.set(id,pair);
+      });
+    });
+  });
+  return {total:total,counts:counts};
+}
+function viewScouts(){
+  var ed=canEditUi(),tab=ui.scoutView||'elenco';
+  var h='<header class="portal-heading"><h2>Elenco &amp; Scouts</h2><p>'+S.players.length+' atletas cadastrados · '+S.history.length+' jogos no histórico</p></header><div class="btnrow">'+
+    Object.entries({elenco:'Elenco',scout:'Comparar atletas',ranking:'Ranking',...(ed?{editar:'Editar elenco'}:{})}).map(function([key,label]){
+      return '<button type="button" class="chip" data-act="scoutView" data-v="'+key+'" aria-pressed="'+(tab===key)+'">'+label+'</button>';
+    }).join('')+'</div>';
+  if(tab==='ranking')return h+viewRanking();
+  if(tab==='editar'&&ed)return h+viewJogadores();
+  var players=S.players.slice().sort(function(a,b){return a.name.localeCompare(b.name,'pt-BR');});
+  var stats=new Map(aggregate(S.history).map(function(row){return [row.id,row];}));
+  var value=function(id,key,covered){var row=stats.get(id);return row&&(!covered||row[covered]>0)?row[key]:'—';};
+  if(tab==='scout'){
+    var ids=ui.compared||[];
+    h+='<div class="card"><div class="grid2">'+[0,1].map(function(i){
+      return '<label class="field">Atleta '+(i+1)+'<select data-act="comparePlayer" data-i="'+i+'"><option value="">Selecione</option>'+players.map(function(p){return '<option value="'+esc(p.id)+'"'+(ids[i]===p.id?' selected':'')+'>'+esc(p.name)+'</option>';}).join('')+'</select></label>';
+    }).join('')+'</div>';
+    if(byId(ids[0])&&byId(ids[1])&&ids[0]!==ids[1])h+='<div class="scout-data"><table><thead><tr><th scope="col">Estatística</th>'+ids.map(function(id){return '<th scope="col">'+esc(byId(id).name)+'</th>';}).join('')+'</tr></thead><tbody>'+
+      [['Jogos','j'],['Gols','g','jG'],['Assistências','a','jA'],['Vitórias','w','jp'],['Bola Cheia','c'],['Bola Murcha','m']].map(function([label,key,coverage]){
+        return '<tr><th scope="row">'+label+'</th>'+ids.map(function(id){return '<td>'+value(id,key,coverage)+'</td>';}).join('')+'</tr>';
+      }).join('')+'</tbody></table></div><p class="hint">— indica dado sem registro.</p>';
+    return h+'</div>';
+  }
+  var currentMonth=dateBR().slice(0,7), month=ui.scoutMonth||currentMonth;
+  var months=Array.from(new Set([currentMonth].concat(Object.keys(S.meses),S.history.map(function(g){return dateBR(g.date).slice(0,7);}))));
+  months.sort().reverse();
+  var teams=monthTeams(month)||[],filter=ui.scoutPosition||'',query=norm(ui.scoutName||'');
+  var participation=scoutParticipation(S.history,month);
+  h+='<div class="scout-filters"><label class="field">Buscar atleta<input id="scout-name" type="search" value="'+esc(ui.scoutName||'')+'"></label><label class="field">Posição<select data-act="scoutPosition">'+
+    POS.map(function([key,label]){return '<option value="'+key+'"'+(key===filter?' selected':'')+'>'+esc(key?label:'Todas')+'</option>';}).join('')+'</select></label>'+
+    '<label class="field">Mês da escalação<select data-act="scoutMonth">'+months.map(function(key){return '<option value="'+key+'"'+(key===month?' selected':'')+'>'+esc(monthLabel(key,true))+'</option>';}).join('')+'</select></label></div>'+
+    '<p class="scout-legend">'+(participation.total?
+      'O preenchimento mostra a presença em '+participation.total+' '+(participation.total===1?'jogo com escalação registrada':'jogos com escalação registrada')+' no mês.':
+      'O mês ainda não tem jogos com escalação registrada. A cor do card indica a escalação confirmada.')+'</p>';
+  var filtered=players.filter(function(p){return (!filter||p.pos===filter)&&(!query||norm(p.name).includes(query));});
+  return h+(filtered.length?'<div class="scout-grid">'+filtered.map(function(p){
+    var t=teams.findIndex(function(team){return team.includes(p.id);});
+    var [red,green]=participation.counts.get(p.id)||[0,0];
+    var redFill=participation.total?red/participation.total*100:0;
+    var greenFill=participation.total?green/participation.total*100:0;
+    var teamLabel=t>=0?COLORS[t%COLORS.length].n:'Sem time confirmado';
+    var side=t===0?' scout-red':t===1?' scout-green':'';
+    return '<article class="card scout-card'+side+'" style="--red-fill:'+redFill+'%;--all-fill:'+(redFill+greenFill)+'%">'+
+      '<header>'+kitAvatar(p,48,t)+'<div><h3>'+nameLink(p,p.id)+'</h3><small>'+esc(POSSHORT[p.pos]||'Posição sem registro')+(p.num?' · #'+p.num:'')+'</small></div></header>'+
+      '<span class="scout-team-label">'+esc(teamLabel)+'</span>'+
+      (participation.total?'<div class="scout-participation"><span><i class="scout-dot red"></i>Vermelho <b>'+red+'</b></span><span><i class="scout-dot green"></i>Verde <b>'+green+'</b></span>'+
+        '<div class="scout-meter" aria-hidden="true"></div></div>':'')+
+      '<dl aria-label="Estatísticas do histórico"><div><dt>Jogos</dt><dd>'+value(p.id,'j')+'</dd></div><div><dt>Gols</dt><dd>'+value(p.id,'g','jG')+'</dd></div><div><dt>Assist.</dt><dd>'+value(p.id,'a','jA')+'</dd></div></dl></article>';
+  }).join('')+'</div>':'<p class="empty">Nenhum atleta encontrado.</p>');
+}
+function pageContent(){
+  if(ui.perfil)return viewPerfil(ui.perfil);
+  var views={avisos:viewAvisos,tv:viewTV,lances:viewLances,jogadores:viewScouts,ranking:viewRanking,jornal:viewJornal,jogos:viewJogos,times:function(){return teamsBlock(false);}};
+  if(canEditUi()){views.sorteio=viewSorteio;views.votacao=viewVotacao;}
+  return Object.hasOwn(views,ui.tab)?views[ui.tab]():viewAvisos();
+}
 function render(){
   if(ui.picking){ui.pendingRender=true;return;}
   var app=document.getElementById('app');if(!app)return;
   var active=document.activeElement,keep=active&&active.id&&active.type!=='file'&&active.closest&&active.closest('#app')&&(active.tagName==='INPUT'||active.tagName==='TEXTAREA')?{id:active.id,v:active.value,s:active.selectionStart}:null;
-  if(ui.tab==='votacao'&&!canEditUi())ui.tab='ranking';
+  if(!canEditUi()&&['votacao','sorteio'].includes(ui.tab))ui.tab='avisos';
   if(ui.fatal||ui.login||ui.loading){app.innerHTML=header(true)+'<main>'+(ui.fatal?'<div class="card center-card"><h2>Ops</h2><p>'+esc(ui.fatal)+'</p><button type="button" class="btn primary wide" data-act="retry">Tentar de novo</button></div>':ui.login?loginView():'<div class="loading" role="status"><span class="ball" aria-hidden="true">⚽</span>Carregando…</div>')+'</main>'+(ui.toast?'<div class="toast" role="status">'+esc(ui.toast)+'</div>':'');return;}
-  var body=ui.perfil?viewPerfil(ui.perfil):ui.tab==='votacao'?viewVotacao():ui.tab==='jornal'?viewJornal():ui.tab==='avisos'?viewAvisos():ui.tab==='jogadores'?viewJogadores():ui.tab==='jogos'?viewJogos():ui.tab==='ranking'?viewRanking():viewSorteio();
+  var body=pageContent();
   var h='<a class="skip" href="#conteudo">Pular para o conteúdo</a>'+(SITE==='publico'?broadcastTicker():'')+header();
   if(ui.offline)h+='<div class="offline-note" role="status"><span>Modo leitura · exibindo a última cópia disponível dos dados.</span><button type="button" class="link" data-act="retry">Tentar sincronizar</button></div>';
-  if(ui.recover)h+='<div class="banner"><span>Você tinha alterações que não chegaram a ser salvas.</span><div class="btnrow tight"><button type="button" class="btn sm primary" data-act="recover">Recuperar</button><button type="button" class="btn sm" data-act="discard">Descartar</button></div></div>';
+  if(ui.recover)h+='<div class="banner"><span>Outra versão foi salva. Você pode copiar seu rascunho para consultar antes de refazer as alterações.</span><div class="btnrow tight"><button type="button" class="btn sm primary" data-act="recover">Copiar rascunho</button><button type="button" class="btn sm" data-act="discard">Descartar</button></div></div>';
   if(ui.preview)h+='<div class="banner"><span>Você está vendo o app como um atleta vê.</span><button type="button" class="btn sm primary" data-act="preview">Voltar ao modo diretoria</button></div>';
   else if(SITE==='diretoria'&&mode==='shared')h+='<div class="banner muted dir"><span>🔒 Área da diretoria'+(ui.user?' · '+esc(ui.user):'')+'</span><button type="button" class="link" data-act="logout">'+(ui.confirmLogout?'Há alterações não salvas. Toque de novo para sair mesmo assim':'Sair')+'</button></div>';
   else if(canEditUi()&&S.players.length&&ui.tab!=='avisos')h+='';
@@ -2206,8 +2458,31 @@ document.addEventListener('click',function(e){
   switch(a){
     case 'perfil':ui.perfil=id;ui.perfilFrom=window.scrollY;render();window.scrollTo(0,0);break;
     case 'perfilBack':ui.perfil=null;render();window.scrollTo(0,ui.perfilFrom||0);break;
-    case 'tab':ui.perfil=null;ui.tab=b.dataset.tab;ui.tabTouched=true;ui.sel=null;ui.editPlayer=null;render();window.scrollTo(0,0);break;
-    case 'openLineup':ui.perfil=null;ui.tab='sorteio';ui.tabTouched=true;ui.publicTeamsMonth=b.dataset.month;render();window.scrollTo(0,0);break;
+    case 'tab':{
+      var target=b.dataset.tab;
+      if(!canEditUi()&&['sorteio','votacao'].includes(target))break;
+      ui.perfil=null;ui.tab=target;ui.tabTouched=true;ui.sel=null;ui.editPlayer=null;ui.playVideo=null;
+      if(['tv','lances'].includes(target))loadVideoLibrary(false);
+      render();window.scrollTo(0,0);break;}
+    case 'lancesView':ui.lancesView=b.dataset.v==='jornal'?'jornal':'videos';render();break;
+    case 'openJournal':ui.tab='lances';ui.lancesView='jornal';ui.tabTouched=true;render();window.scrollTo(0,0);break;
+    case 'videoFilter':ui.videoFilter=b.dataset.v;ui.playVideo=null;render();break;
+    case 'retryVideos':loadVideoLibrary(true);render();break;
+    case 'playVideo':ui.playVideo=id;render();break;
+    case 'closeVideo':ui.playVideo=null;render();refreshPublic();break;
+    case 'scoutView':ui.scoutView=b.dataset.v;render();break;
+    case 'newVideo':if(canEditUi()){ui.videoDraft={};render();document.getElementById('video-editor')?.scrollIntoView({block:'nearest'});}break;
+    case 'editVideo':if(canEditUi()){ui.videoDraft=(videoLibrary.items||[]).find(function(item){return item.id===id;});ui.tab='lances';ui.lancesView='videos';render();document.getElementById('video-editor')?.scrollIntoView({block:'nearest'});}break;
+    case 'cancelVideo':if(!ui.videoSaving){ui.videoDraft=null;render();}break;
+    case 'removeVideo':removeVideo(id);break;
+    case 'tvFullscreen':{
+      var screen=document.getElementById('fda-screen');
+      if(!screen)break;
+      if(document.fullscreenElement){document.exitFullscreen();break;}
+      if(screen.requestFullscreen)screen.requestFullscreen().catch(function(){toast('Este navegador não permite o modo telão.');});
+      else toast('O modo telão não está disponível neste navegador.');
+      break;}
+    case 'openLineup':ui.perfil=null;ui.tab='times';ui.tabTouched=true;ui.publicTeamsMonth=b.dataset.month;render();window.scrollTo(0,0);break;
     case 'tickerMotion':ui.tickerPaused=!ui.tickerPaused;b.setAttribute('aria-pressed',String(ui.tickerPaused));break;
     case 'partyPix':{
       var event=S.info.festa||FESTA_11;
@@ -2254,7 +2529,7 @@ document.addEventListener('click',function(e){
       var A=S.current.teams[ta2],B=S.current.teams[tb];A[A.indexOf(ui.sel)]=id;B[B.indexOf(id)]=ui.sel;
       ui.sel=null;S.current.confirmed=false;change();break;}
     case 'save':save();break;
-    case 'recover':{var bse=S.savedAt;S=normalize(ui.recover.state);S.savedAt=bse;ui.recover=null;change();break;}
+    case 'recover':if(canEditUi()&&ui.recover)copy(JSON.stringify(ui.recover.state,null,2));break;
     case 'discard':ui.recover=null;lsDel(DRAFT_KEY);render();break;
     case 'delHist':{if(ui.confirmDel!==id){ui.confirmDel=id;render();break;}
       S.history=S.history.filter(function(h){return h.id!==id;});if(S.current&&S.current.histId===id){S.current.histId=null;S.current.confirmed=false;}ui.confirmDel=null;change();break;}
@@ -2385,6 +2660,9 @@ document.addEventListener('click',function(e){
 });
 document.addEventListener('change',function(e){
   var el=e.target,a=el.dataset&&el.dataset.act;if(!a)return;
+  if(a==='scoutPosition'){ui.scoutPosition=el.value;render();return;}
+  if(a==='scoutMonth'){ui.scoutMonth=el.value;render();return;}
+  if(a==='comparePlayer'){ui.compared=ui.compared||['',''];ui.compared[+el.dataset.i]=el.value;render();return;}
   if(a==='tacticalSwap'){if(el.value)swapTactical(el.dataset.month,+el.dataset.team,el.dataset.id,el.value);return;}
   if(a==='noticeExpiry'){if(canEditUi()){var notice=S.info.notices.find(function(n){return n.id===el.dataset.id;});if(notice){notice.expires=validDay(el.value);change();}}return;}
   if(a==='quickPick'){if(canEditUi()){ui.quickPlayer=el.value;render();}return;}
@@ -2458,7 +2736,8 @@ window.addEventListener('focus',function(){setTimeout(function(){if(ui.picking){
 document.addEventListener('keydown',function(e){if(e.key==='Enter'&&(e.target.id==='lgSenha'||e.target.id==='lgEmail')){e.preventDefault();doLogin();}
   if(e.key==='Enter'&&e.target.id==='newnotice'){e.preventDefault();var bn=document.querySelector('[data-act="addNotice"]');if(bn)bn.click();}
   if(e.key==='Enter'&&e.target.id==='newname'){e.preventDefault();var btn=document.querySelector('[data-act="add"]');if(btn)btn.click();}if(e.key==='Escape'){if(ui.copyText!=null)ui.copyText=null;ui.lightbox=null;ui.photoSheet=null;render();}});
-document.addEventListener('input',function(e){if(e.target.id==='findName'){ui.findName=e.target.value;render();return;}var k=e.target.dataset&&e.target.dataset.pd;if(k&&ui.postDraft)ui.postDraft[k]=e.target.value;});
+document.addEventListener('input',function(e){if(e.target.id==='findName'){ui.findName=e.target.value;render();return;}if(e.target.id==='scout-name'){ui.scoutName=e.target.value;render();return;}var k=e.target.dataset&&e.target.dataset.pd;if(k&&ui.postDraft)ui.postDraft[k]=e.target.value;});
+document.addEventListener('submit',function(e){if(e.target.id==='video-editor'){e.preventDefault();publishVideo(e.target);}});
 document.addEventListener('change',function(e){var k=e.target.dataset&&e.target.dataset.pdc;if(k&&ui.postDraft)ui.postDraft[k]=e.target.checked;});
 window.addEventListener('beforeunload',function(){if(dirty)lsSet(DRAFT_KEY,{base:S.savedAt,state:S});});
 
@@ -2523,3 +2802,4 @@ render();init();
 startArenaParticles();
 prepareClubArt().then(render).catch(function(){console.warn('A prancha do FDA não pôde ser carregada.');});
 })();
+
