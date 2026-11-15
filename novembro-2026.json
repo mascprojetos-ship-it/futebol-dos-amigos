@@ -20,7 +20,7 @@
       "xwjc4o4jqo1",
       "2wnjyavn1tu",
       "xnak1cedo9l",
-      "fda-macgyver"
+      "fvzfli4ikvw"
     ],
     [
       "ofs5ec9sazs",
@@ -312,12 +312,11 @@
       "stars": 3.5
     },
     {
-      "id": "fda-macgyver",
-      "name": "MacGyver",
-      "stars": 3,
-      "pos": "",
-      "photo": "",
-      "num": 0
+      "id": "fvzfli4ikvw",
+      "num": 16,
+      "pos": "V",
+      "name": "Magaiver",
+      "stars": 3
     }
   ]
 }
