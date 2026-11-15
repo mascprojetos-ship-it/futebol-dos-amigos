@@ -786,22 +786,10 @@ main{max-width:1120px;margin-inline:auto;padding:20px}
   flex: none;
   width: var(--art-width,42px);
   aspect-ratio: var(--art-ratio);
-  background-image: url("/assets/fda-identidade.jpg");
-  background-repeat: no-repeat;
-  background-size: var(--art-size);
-  background-position: var(--art-pos);
   border-radius: 8%;
   vertical-align: middle;
 }
 .duel .club-art { --art-width: min(100%,215px); }
-.side-red .club-art { box-shadow: 0 8px 32px #e948515c; }
-.side-green .club-art { box-shadow: 0 8px 32px #42ef8752; }
-.art-shirt-red {
-  clip-path: polygon(0 0,100% 0,100% 100%,19% 100%,19% 46%,0 46%);
-}
-.art-shirt-green {
-  clip-path: polygon(6% 0,100% 0,100% 100%,0 100%,0 24%,6% 24%);
-}
 .sbd-t .club-art { --art-width: clamp(28px,7vw,45px); }
 .tw-h .club-art, .team header .club-art { --art-width: 31px; margin-inline-end: 7px; }
 .kit-avatar { position: relative; display: inline-flex; flex: none; }
@@ -824,3 +812,49 @@ main{max-width:1120px;margin-inline:auto;padding:20px}
 .teams-month { max-width: 250px; }
 .cd { background: #121212; border-color: #478361; }
 .cd b { color: #afffca; text-shadow: 0 0 13px #44d18155; font-variant-numeric: tabular-nums; }
+
+/* V65 · sistema visual de transmissão */
+:root {
+  --body: "Plus Jakarta Sans", Arial, sans-serif;
+  --display: Oswald, "Arial Narrow", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+  --bg-base: #070B0E;
+  --bg-surface: #0F161C;
+  --line: rgba(255,255,255,.08);
+  --border-glass: 1px solid var(--line);
+}
+body { background: var(--bg-base); font-family: var(--body); }
+.card, .mc, .latest-result, .award-poster, .award-poster.murcha {
+  background: var(--bg-surface);
+  border: var(--border-glass);
+  border-radius: 16px;
+  box-shadow: none;
+}
+.mc { text-align: center; }
+.mc-status { background: #173027; }
+.fda-top, .tabs { background: var(--bg-base); }
+.fda-top .logo { filter: drop-shadow(0 5px 12px #a4ffd133); }
+.tabs .ti { width: 19px; height: 19px; }
+.tabs .tl { font-family: var(--body); font-size: clamp(.67rem,1.4vw,.8rem); }
+.tn, .sbd-t span, .lineup-team strong { font-family: var(--display); text-transform: uppercase; }
+.cd b, .tl-n b, .vsb small, .lineup-count { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.cd { background: #0b1116; border-color: var(--line); }
+.cd b { color: #a7f2ba; text-shadow: none; }
+.club-art img { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,.75)); }
+.duel .club-art { --art-width: min(100%,155px); }
+.kit-avatar .club-art img { filter: drop-shadow(0 1px 2px #000a); }
+.broadcast-grid { display: grid; gap: 14px; margin-bottom: 14px; }
+.broadcast-grid > * { min-width: 0; margin: 0; }
+.lineup-brief { padding: clamp(16px,2.3vw,26px); }
+.lineup-brief h2 { margin-bottom: 4px; }
+.lineup-team { display: flex; gap: 12px; align-items: center; padding-block: 10px; border-top: var(--border-glass); }
+.lineup-team .club-art { --art-width: 49px; }
+.lineup-team strong { display: block; font-size: 1.15rem; }
+.lineup-name { display: block; font-size: .8rem; }
+.lineup-count { margin-left: auto; font-size: .75rem; text-align: right; }
+.poster-art { position: relative; }
+@media (min-width: 860px) {
+  .broadcast-grid { grid-template-columns: repeat(12,minmax(0,1fr)); gap: 16px; }
+  .broadcast-grid > .mc { grid-column: span 7; }
+  .broadcast-grid > .lineup-brief { grid-column: span 5; }
+}
