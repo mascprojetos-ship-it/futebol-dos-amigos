@@ -1,0 +1,323 @@
+{
+  "teams": [
+    [
+      "nh6kp7irr3m",
+      "7jj5a3rrwz0",
+      "3g1ao7oslg6",
+      "fyvwzlrtq34",
+      "culge1hu6yb",
+      "bopo34tvxou",
+      "it1pe9fwiji",
+      "6emr1x3ce3v",
+      "tbadeofdp41",
+      "54udhm1e2ze",
+      "zc6uwiyedwv",
+      "bvh3cdkep2d",
+      "43fytixi9u2",
+      "4khm7lrieo8",
+      "ynlf0vjjd2x",
+      "1b6v9qtjjkm",
+      "xwjc4o4jqo1",
+      "2wnjyavn1tu",
+      "xnak1cedo9l",
+      "fda-macgyver"
+    ],
+    [
+      "ofs5ec9sazs",
+      "r4uf0qzthgn",
+      "dc6g8t7tz9q",
+      "xujdnpguuqr",
+      "l2ogjgyvgep",
+      "2665ma7bv53",
+      "e0eszmtcibd",
+      "t4kkqyicyss",
+      "07v46lyg34x",
+      "4w7wqdpg9nc",
+      "k90vbuzgl71",
+      "tb7jwhwgvhz",
+      "hn59mg4h8fh",
+      "q1ordxuhs7a",
+      "o755ordi4o5",
+      "j5q6ky2ikpz",
+      "hi84auqix90",
+      "0o9wg9bj47p",
+      "brvp805jy1o"
+    ]
+  ],
+  "players": [
+    {
+      "id": "07v46lyg34x",
+      "num": 19,
+      "pos": "A",
+      "name": "Cristian",
+      "stars": 1
+    },
+    {
+      "id": "0o9wg9bj47p",
+      "num": 22,
+      "pos": "L",
+      "name": "Jacó",
+      "stars": 4.5
+    },
+    {
+      "id": "1b6v9qtjjkm",
+      "num": 5,
+      "pos": "V",
+      "name": "Xicão",
+      "stars": 2
+    },
+    {
+      "id": "2665ma7bv53",
+      "num": 3,
+      "pos": "Z",
+      "name": "Adelson",
+      "stars": 3
+    },
+    {
+      "id": "2wnjyavn1tu",
+      "num": 4,
+      "pos": "Z",
+      "name": "Primo",
+      "stars": 3.5
+    },
+    {
+      "id": "3g1ao7oslg6",
+      "num": 7,
+      "pos": "A",
+      "name": "Lucas",
+      "stars": 4
+    },
+    {
+      "id": "43fytixi9u2",
+      "num": 6,
+      "pos": "L",
+      "name": "Orelha",
+      "stars": 3
+    },
+    {
+      "id": "4khm7lrieo8",
+      "num": 3,
+      "pos": "L",
+      "name": "Pipo",
+      "stars": 1
+    },
+    {
+      "id": "4w7wqdpg9nc",
+      "num": 2,
+      "pos": "L",
+      "name": "Eliezer",
+      "stars": 1
+    },
+    {
+      "id": "54udhm1e2ze",
+      "num": 18,
+      "pos": "A",
+      "name": "Daniel",
+      "stars": 1
+    },
+    {
+      "id": "6emr1x3ce3v",
+      "num": 2,
+      "pos": "L",
+      "name": "Alex",
+      "stars": 3.5
+    },
+    {
+      "id": "7jj5a3rrwz0",
+      "num": 11,
+      "pos": "A",
+      "name": "Ualber",
+      "stars": 5
+    },
+    {
+      "id": "bopo34tvxou",
+      "num": 5,
+      "pos": "V",
+      "name": "André",
+      "stars": 5
+    },
+    {
+      "id": "brvp805jy1o",
+      "num": 1,
+      "pos": "G",
+      "name": "Miltinho",
+      "stars": 3
+    },
+    {
+      "id": "bvh3cdkep2d",
+      "num": 15,
+      "pos": "L",
+      "name": "Delamadre",
+      "stars": 1
+    },
+    {
+      "id": "culge1hu6yb",
+      "num": 12,
+      "pos": "G",
+      "name": "Geovani Coxinha",
+      "stars": 2
+    },
+    {
+      "id": "dc6g8t7tz9q",
+      "num": 10,
+      "pos": "MA",
+      "name": "Geovane",
+      "stars": 3
+    },
+    {
+      "id": "e0eszmtcibd",
+      "num": 5,
+      "pos": "V",
+      "name": "Apolo",
+      "stars": 2
+    },
+    {
+      "id": "fyvwzlrtq34",
+      "num": 4,
+      "pos": "Z",
+      "name": "Lu",
+      "stars": 4
+    },
+    {
+      "id": "hi84auqix90",
+      "num": 18,
+      "pos": "MA",
+      "name": "Pud",
+      "stars": 1.5
+    },
+    {
+      "id": "hn59mg4h8fh",
+      "num": 19,
+      "pos": "A",
+      "name": "Kaio",
+      "stars": 2
+    },
+    {
+      "id": "it1pe9fwiji",
+      "num": 18,
+      "pos": "A",
+      "name": "Goiaba",
+      "stars": 2
+    },
+    {
+      "id": "j5q6ky2ikpz",
+      "num": 10,
+      "pos": "MA",
+      "name": "Tomate",
+      "stars": 2
+    },
+    {
+      "id": "k90vbuzgl71",
+      "num": 8,
+      "pos": "V",
+      "name": "Eliventon",
+      "stars": 3
+    },
+    {
+      "id": "l2ogjgyvgep",
+      "num": 5,
+      "pos": "V",
+      "name": "Igor",
+      "stars": 4
+    },
+    {
+      "id": "nh6kp7irr3m",
+      "num": 14,
+      "pos": "MA",
+      "name": "M14",
+      "stars": 3
+    },
+    {
+      "id": "o755ordi4o5",
+      "num": 11,
+      "pos": "A",
+      "name": "Bermudão",
+      "stars": 2
+    },
+    {
+      "id": "ofs5ec9sazs",
+      "num": 10,
+      "pos": "MA",
+      "name": "Piril",
+      "stars": 5
+    },
+    {
+      "id": "q1ordxuhs7a",
+      "num": 3,
+      "pos": "Z",
+      "name": "Murilo",
+      "stars": 3
+    },
+    {
+      "id": "r4uf0qzthgn",
+      "num": 7,
+      "pos": "MA",
+      "name": "Bezerrinho",
+      "stars": 4
+    },
+    {
+      "id": "t4kkqyicyss",
+      "num": 13,
+      "pos": "L",
+      "name": "Bruninho NG",
+      "stars": 3
+    },
+    {
+      "id": "tb7jwhwgvhz",
+      "num": 13,
+      "pos": "L",
+      "name": "Gilberto",
+      "stars": 2
+    },
+    {
+      "id": "tbadeofdp41",
+      "num": 10,
+      "pos": "MA",
+      "name": "Bruninho Coelho",
+      "stars": 2.5
+    },
+    {
+      "id": "xnak1cedo9l",
+      "num": 8,
+      "pos": "V",
+      "name": "Dibeu",
+      "stars": 5
+    },
+    {
+      "id": "xujdnpguuqr",
+      "num": 5,
+      "pos": "Z",
+      "name": "Dedé",
+      "stars": 4.5
+    },
+    {
+      "id": "xwjc4o4jqo1",
+      "num": 10,
+      "pos": "MA",
+      "name": "Juninho",
+      "stars": 2
+    },
+    {
+      "id": "ynlf0vjjd2x",
+      "num": 4,
+      "pos": "Z",
+      "name": "Naldinho",
+      "stars": 3
+    },
+    {
+      "id": "zc6uwiyedwv",
+      "num": 7,
+      "pos": "MA",
+      "name": "Daniel Feijão",
+      "stars": 3.5
+    },
+    {
+      "id": "fda-macgyver",
+      "name": "MacGyver",
+      "stars": 3,
+      "pos": "",
+      "photo": "",
+      "num": 0
+    }
+  ]
+}
