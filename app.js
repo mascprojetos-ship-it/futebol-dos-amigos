@@ -1120,7 +1120,7 @@ function collectCard(kind,g){
   var p=personOf(g,id),st=statsTxt(g,id),why=whyTxt(kind,g);
   var team=gameTeamIndex(g,id);
   return '<article class="award award-poster '+kind+'"><span class="ribbon">'+(isC?'Craque da rodada':'Bola Murcha')+'</span>'+
-    '<div class="poster-art">'+avatarBtn(p,88)+clubArt(kind)+teamArt('shirt',team)+'</div>'+
+    '<div class="poster-art"><div class="poster-athlete">'+avatarBtn(p,88)+teamArt('shirt',team)+'</div>'+clubArt(kind)+'</div>'+
     '<strong>'+esc(p.name)+'</strong>'+(team>=0&&COLORS[team]?'<span class="stat">Time '+COLORS[team].n+'</span>':'')+
     (st?'<span class="stat">'+esc(st)+'</span>':'')+(why?'<p class="why">'+esc(why)+'</p>':'')+'</article>';
 }
@@ -1190,19 +1190,22 @@ async function downloadAwardPoster(game,kind){
   title('JORNAL DO FUTEBOL DOS AMIGOS',31,244,'#eef6ee');
   title('EDIÇÃO ESPECIAL DA PELADA',25,286,'#c9d7ce');
   title(kind==='cheia'?'CRAQUE DA RODADA':'BOLA MURCHA',78,360,gold);
+  var knownKit=team===0||team===1;
+  if(knownKit)drawArt(team===0?'shirt-red':'shirt-green',184,650,382);
+  var portraitY=knownKit?577:700, radius=knownKit?160:228;
   ctx.save();
   ctx.beginPath();
-  ctx.arc(375,700,228,0,2*Math.PI);
+  ctx.arc(375,portraitY,radius,0,2*Math.PI);
   ctx.clip();
   ctx.fillStyle='#293e30';
-  ctx.fillRect(147,472,456,456);
+  ctx.fillRect(375-radius,portraitY-radius,radius*2,radius*2);
   if(photo){
     var edge=Math.min(photo.naturalWidth,photo.naturalHeight);
-    ctx.drawImage(photo,(photo.naturalWidth-edge)/2,(photo.naturalHeight-edge)/2,edge,edge,147,472,456,456);
+    ctx.drawImage(photo,(photo.naturalWidth-edge)/2,(photo.naturalHeight-edge)/2,edge,edge,375-radius,portraitY-radius,radius*2,radius*2);
   }else{
     ctx.fillStyle=gold;
     ctx.font='bold 116px Arial, sans-serif';
-    ctx.fillText(person.name.trim().split(/\s+/).slice(0,2).map(function(word){return word.charAt(0).toUpperCase();}).join(''),375,738);
+    ctx.fillText(person.name.trim().split(/\s+/).slice(0,2).map(function(word){return word.charAt(0).toUpperCase();}).join(''),375,portraitY+38);
   }
   ctx.restore();
   function drawArt(key,x,y,width){
@@ -1210,7 +1213,6 @@ async function downloadAwardPoster(game,kind){
     ctx.drawImage(image,x,y,width,width*image.height/image.width);
   }
   drawArt(kind,705,462,230);
-  if(team===0||team===1)drawArt(team===0?'shirt-red':'shirt-green',745,908,150);
   title(person.name.toLocaleUpperCase('pt-BR'),70,1174,'#f8faf7');
   title((team>=0&&COLORS[team]?'Time '+COLORS[team].n+'  ·  ':'')+
     new Date(game.date).toLocaleDateString('pt-BR'),33,1230,gold);

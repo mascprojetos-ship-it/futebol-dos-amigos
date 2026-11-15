@@ -853,6 +853,10 @@ body { background: var(--bg-base); font-family: var(--body); }
 .lineup-name { display: block; font-size: .8rem; }
 .lineup-count { margin-left: auto; font-size: .75rem; text-align: right; }
 .poster-art { position: relative; }
+.poster-athlete { display: grid; justify-items: center; }
+.poster-athlete > :first-child { position: relative; z-index: 1; }
+.poster-athlete > .club-art { --art-width: 112px; margin-top: -18px; }
+.poster-art > .club-art { --art-width: 71px; margin-inline-start: 12px; }
 @media (min-width: 860px) {
   .broadcast-grid { grid-template-columns: repeat(12,minmax(0,1fr)); gap: 16px; }
   .broadcast-grid > .mc { grid-column: span 7; }
