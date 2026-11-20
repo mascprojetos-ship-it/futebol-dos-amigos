@@ -21,7 +21,7 @@ function monthKey(d){d=new Date(d);return d.getFullYear()+'-'+String(d.getMonth(
 function monthLabel(k,cap){var p=String(k).split('-');var s=MESES[(+p[1]||1)-1]+' de '+p[0];return cap?s.charAt(0).toUpperCase()+s.slice(1):s;}
 function monthName(k){var p=String(k).split('-');return MESES[(+p[1]||1)-1];}
 function shiftMonth(k,n){var p=k.split('-');return monthKey(new Date(+p[0],+p[1]-1+n,1));}
-function curMonthKey(){return dateBR(nextGame()).slice(0,7);}
+function curMonthKey(){return dateBR(upcomingFixture().date).slice(0,7);}
 function monthTeams(k){var m=S.meses&&S.meses[k];return m&&m.teams&&m.teams.length>=2&&m.teams[0].length&&m.teams[1].length?m.teams:null;}
 function monthEnded(k){var p=k.split('-');return Date.now()>new Date(+p[0],+p[1],1).getTime();}
 function findByName(n){n=norm(n||'');if(!n)return null;for(var i=0;i<S.players.length;i++)if(norm(S.players[i].name)===n)return S.players[i];return null;}
@@ -32,12 +32,12 @@ function normMeses(raw,seen){var o={};if(!raw||typeof raw!=='object')return o;
     o[k]={teams:teams,campeao:(m.campeao===0||m.campeao===1)?m.campeao:null,
       titulares:teams.map(function(team,i){return (Array.isArray(m.titulares&&m.titulares[i])?m.titulares[i]:[]).filter(function(id){return team.includes(id);}).slice(0,11);})};});
   return o;}
-function defaults(){return {meses:{},seedSeen:[],posts:[],info:defInfo(),v:4,savedAt:0,players:[],present:[],settings:{teams:2,gk:true,rot:'forte',lookback:4,shareStars:false,starters:11,arrival:false},history:[],current:null};}
+function defaults(){return {meses:{},seedSeen:[],posts:[],info:defInfo(),v:4,savedAt:0,players:[],present:[],settings:{teams:2,gk:true,rot:'forte',lookback:4,starters:11,arrival:false},history:[],current:null};}
 function defInfo(){return {redes:{instagram:'https://www.instagram.com/futeboldosamigoseresenha',tiktok:'https://www.tiktok.com/@futebolamigosdebel',facebook:'https://www.facebook.com/share/1CmbB5RWsz/'},fields:defFields(),fieldId:'imperial',name:'Futebol dos Amigos',kickoff:'06:00',arrival:'05:40',feeDay:10,logo:'',notices:[
   {id:'n1',text:'Pelada todo domingo. Bola rolando às 6h00.'},
   {id:'n2',text:'Chegue até as 5h40 para garantir a titularidade.'},
   {id:'n3',text:'Mensalidade em dia: pagamento até o dia 10 de cada mês.'}],festa:FESTA_11};}
-var FESTA_11={date:'2026-11-22',deadline:'2026-11-15',local:'Espaço Casa de Pedra em Xavantes (próximo ao campo do Imperial)',pix:'0e1e4a25-fdd3-49c3-b94b-5c0cf172e067',family:200,individual:100};
+var FESTA_11={date:'2026-11-22',deadline:'2026-11-15',title:'Festa de 11 anos do Futebol dos Amigos',details:'Espaço com piscina, chopp e churrasco',poster:'/assets/festa-11-anos.jpeg',local:'Espaço Casa de Pedra em Xavantes (próximo ao campo do Imperial)',pix:'0e1e4a25-fdd3-49c3-b94b-5c0cf172e067',family:200,individual:100};
 var DAY_IN_BRAZIL=new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'});
 function dateBR(value){return DAY_IN_BRAZIL.format(value==null?new Date():new Date(value));}
 function validDay(s){
@@ -81,8 +81,20 @@ function normInfo(i){
   return {proximoJogo:proximoJogo,descricao:typeof i.descricao==='string'?i.descricao.trim().slice(0,180):'',redes:{instagram:okR(rd.instagram,'instagram\\.com'),tiktok:okR(rd.tiktok,'tiktok\\.com'),facebook:okR(rd.facebook,'(facebook\\.com|fb\\.com|fb\\.me)')},fields:fl,fieldId:(fl.some(function(x){return x.id===i.fieldId;})?i.fieldId:fl[0].id),name:(typeof i.name==='string'&&i.name.trim()?i.name.trim().slice(0,40):d.name),kickoff:normTime(i.kickoff,d.kickoff),arrival:normTime(i.arrival,d.arrival),
     feeDay:Math.min(28,Math.max(1,parseInt(i.feeDay,10)||d.feeDay)),
     logo:(typeof i.logo==='string'&&/^data:image\/(png|jpeg|webp);base64,/.test(i.logo)&&i.logo.length<260000)?i.logo:'',
-    festa:i.festa&&i.festa.date===FESTA_11.date?i.festa:FESTA_11,
+    festa:i.festa===null?null:normEvent(i.festa||FESTA_11),
     notices:Array.isArray(i.notices)?i.notices.filter(function(n){return n&&typeof n.text==='string';}).map(function(n){return {id:String(n.id||uid()),text:n.text.slice(0,240),expires:validDay(n.expires)};}).slice(0,30):d.notices};
+}
+function normEvent(event){
+  var date=validDay(event.date);
+  if(!date)return null;
+  var original=date===FESTA_11.date;
+  var poster=event.poster===undefined&&original?FESTA_11.poster:event.poster||'';
+  var moneyValue=function(value){return Math.min(10000,Math.max(0,Number(value)||0));};
+  return {date:date,deadline:validDay(event.deadline),title:String(event.title||(original?FESTA_11.title:'Evento do clube')).trim().slice(0,90),
+    details:String(event.details??(original?FESTA_11.details:'')).trim().slice(0,140),
+    local:String(event.local||'').trim().slice(0,150),pix:String(event.pix||'').trim().slice(0,180),
+    poster:poster===FESTA_11.poster||(/^data:image\/(jpeg|png|webp);base64,/.test(poster)&&poster.length<420000)?poster:'',
+    family:moneyValue(event.family),individual:moneyValue(event.individual),hidden:event.hidden===true};
 }
 function clampStar(x){x=Number(x);if(!isFinite(x))return 3;return Math.min(5,Math.max(0.5,Math.round(x*2)/2));}
 function normalize(raw){
@@ -96,7 +108,7 @@ function normalize(raw){
   });
   d.present=(Array.isArray(raw.present)?raw.present:[]).map(String).filter(function(id,i,a){return seen[id]&&a.indexOf(id)===i;});
   var s=raw.settings||{};
-  d.settings={teams:Math.min(6,Math.max(2,parseInt(s.teams,10)||2)),gk:s.gk!==false,rot:['off','normal','forte'].indexOf(s.rot)>=0?s.rot:'normal',lookback:Math.min(8,Math.max(1,parseInt(s.lookback,10)||4)),shareStars:!!s.shareStars,starters:Math.min(11,Math.max(3,parseInt(s.starters,10)||11)),arrival:false};
+  d.settings={teams:Math.min(6,Math.max(2,parseInt(s.teams,10)||2)),gk:s.gk!==false,rot:['off','normal','forte'].indexOf(s.rot)>=0?s.rot:'normal',lookback:Math.min(8,Math.max(1,parseInt(s.lookback,10)||4)),starters:Math.min(11,Math.max(3,parseInt(s.starters,10)||11)),arrival:false};
   d.history=(Array.isArray(raw.history)?raw.history:[]).filter(function(h){return h&&Array.isArray(h.teams);}).map(normGame).sort(function(a,b){return b.date-a.date;}).slice(0,1500);
   var c=raw.current;
   if(c&&Array.isArray(c.teams)&&c.teams.length>=2){d.current={teams:c.teams.map(function(t){return (Array.isArray(t)?t:[]).map(String).filter(function(id){return seen[id];});}),date:Number(c.date)||Date.now(),confirmed:!!c.confirmed,histId:c.histId?String(c.histId):null,gameDate:Number(c.gameDate)||0,campo:c.campo?String(c.campo).slice(0,30):'',roles:normRoles(c.roles,seen),order:(Array.isArray(c.order)?c.order.map(String).filter(function(id){return seen[id];}):[])};}
@@ -125,6 +137,7 @@ function normGame(h){
   var pl=h.placar&&typeof h.placar==='object'?h.placar:null;
   g.placar=(pl&&isFinite(parseInt(pl.v,10))&&isFinite(parseInt(pl.g,10)))?{v:Math.min(50,Math.max(0,parseInt(pl.v,10))),g:Math.min(50,Math.max(0,parseInt(pl.g,10)))}:null;
   g.live=h.live===true;
+  if(h.agenda===true)g.agenda=true;
   g.liveOps=(Array.isArray(h.liveOps)?h.liveOps:[]).filter(function(id){return typeof id==='string';}).slice(-200);
   g.liveGoals=(Array.isArray(h.liveGoals)?h.liveGoals:[]).filter(function(goal){
     return goal&&typeof goal.id==='string'&&['v','g'].includes(goal.side)&&['normal','pen','fal','contra'].includes(goal.kind);
@@ -468,17 +481,16 @@ function copy(text){
   if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){toast('Copiado! É só colar no grupo.');},fallback);}else fallback();
 }
 function shareText(){
-  var withStars=S.settings.shareStars&&canEditUi();
   var teams=currentTeams();if(!teams)return '';
   var d=new Date(S.current.date).toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit'});
-  var m=metrics(teams),cf=curField(),lines=['⚽ '+S.info.name+' — times de '+d,'📍 '+cf.name+(cf.principal?'':' (mudança de campo!)'),'⏰ Em cada time, os '+S.settings.starters+' primeiros a chegar começam jogando.',''];
+  var cf=curField(),lines=['⚽ '+S.info.name+' — times de '+d,'📍 '+cf.name+(cf.principal?'':' (mudança de campo!)'),'⏰ Em cada time, os '+S.settings.starters+' primeiros a chegar começam jogando.',''];
   teams.forEach(function(t,i){
     var col=COLORS[i%COLORS.length];
-    lines.push(col.e+' *'+col.n+'*'+(withStars?' (média '+fmt(m.ts[i].avg)+'★)':''));
-    var tit=t.filter(function(p){return !isRes(p);}),res=t.filter(isRes),ord=S.current.order||[];res.sort(function(a,b){return ord.indexOf(a.id)-ord.indexOf(b.id);});
+    lines.push(col.e+' *'+col.n+'*');
+    var tit=t.filter(function(p){return !isRes(p);}).sort(publicPlayerOrder),res=t.filter(isRes),ord=S.current.order||[];res.sort(function(a,b){return ord.indexOf(a.id)-ord.indexOf(b.id)||publicPlayerOrder(a,b);});
     if(res.length)lines.push('_Titulares_');
-    tit.forEach(function(p){lines.push('• '+p.name+(p.pos==='G'?' (gol)':'')+(withStars?' '+fmt(p.stars)+'★':''));});
-    if(res.length){lines.push('_Reservas_');res.forEach(function(p,i){lines.push((i+1)+'º '+p.name+(withStars?' '+fmt(p.stars)+'★':''));});}
+    tit.forEach(function(p){lines.push('• '+p.name+(p.pos==='G'?' (gol)':''));});
+    if(res.length){lines.push('_Reservas_');res.forEach(function(p,i){lines.push((i+1)+'º '+p.name);});}
     lines.push('');
   });
   return lines.join('\n').trim();
@@ -515,7 +527,7 @@ function creditHTML(){var C=CREDITO;return '<div class="credit"><p class="credit
   '<a href="mailto:'+esc(C.email)+'" aria-label="Enviar e-mail para '+esc(C.nome)+'">'+esc(C.email)+'</a></p></div>';}
 function footerHTML(){return '<footer class="foot-wrap"><p class="foot-t">Siga o '+esc(S.info.name)+'</p>'+socialHTML('foot')+'<p class="credit-l"><a href="/diretoria/">Área da diretoria</a></p><p class="foot-s">'+esc((curField()||{}).name||'')+' · '+esc((curField()||{}).bairro||'')+'</p>'+creditHTML()+'</footer>';}
 function header(bare){
-  var dn=new Date(),dl=dn.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}),dsh=dn.toLocaleDateString('pt-BR',{weekday:'short',day:'numeric',month:'short'});
+  var dn=new Date(),dl=dn.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',timeZone:'America/Sao_Paulo'}),dsh=dn.toLocaleDateString('pt-BR',{weekday:'short',day:'numeric',month:'short',timeZone:'America/Sao_Paulo'});
   var hd='<header class="top fda-top">'+
     '<div class="top-in"><img class="logo" src="'+esc(S.info.logo||'/escudo.png')+'" alt=""><div class="brand"><h1>'+esc(S.info.name)+'</h1><p class="sub"><span class="d-l">'+esc(dl)+'</span><span class="d-s">'+esc(dsh)+'</span></p></div></div>'+
     (bare?'':'<button type="button" class="header-action" data-act="tab" data-tab="jogadores" aria-label="Encontrar perfil de atleta"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 20v-2a7 7 0 0 1 14 0v2"/></svg></button>')+'</header>';
@@ -550,7 +562,7 @@ function viewJogadores(){
     if(!S.players.length)return '<p class="empty">Elenco ainda não cadastrado.</p>';
     var L2=S.players.slice().sort(function(a,b){return (PORD[a.pos]-PORD[b.pos])||a.name.localeCompare(b.name,'pt-BR');});
     var h2='<section class="card"><div class="row-between"><h2>Elenco</h2><span class="meta">'+S.players.length+' atletas</span></div><ul class="roster pub">';
-    L2.forEach(function(p){h2+='<li>'+avatarBtn(p,48)+'<span class="nm"><button type="button" class="nmb" data-act="perfil" data-id="'+p.id+'">'+esc(p.name)+(p.num?' <small class="nnum">#'+p.num+'</small>':'')+'</button></span>'+(p.pos?'<span class="pos">'+POS.filter(function(o){return o[0]===p.pos;})[0][1]+'</span>':'')+'</li>';});
+    L2.forEach(function(p){h2+='<li>'+avatarBtn(p,48)+'<span class="nm"><button type="button" class="nmb" data-act="perfil" data-id="'+p.id+'">'+esc(p.name)+(p.num?' <small class="nnum">'+p.num+'</small>':'')+'</button></span>'+(p.pos?'<span class="pos">'+POS.filter(function(o){return o[0]===p.pos;})[0][1]+'</span>':'')+'</li>';});
     return h2+'</ul></section>';
   }
   var pv='<button type="button" class="btn wide" data-act="preview" style="margin-bottom:12px">Ver como os atletas veem</button>';
@@ -578,7 +590,7 @@ function viewSorteio(){
   if(monthTeams(mkS)&&(!S.current||S.current.month!==mkS))S.current={teams:S.meses[mkS].teams.map(function(t){return t.slice();}),date:Date.now(),confirmed:true,month:mkS,roles:{},order:[]};
   if(!monthTeams(mkS)&&S.current&&S.current.month!==mkS)S.current=null;
   var cm=curMonthKey(),opts=[shiftMonth(cm,-2),shiftMonth(cm,-1),cm,shiftMonth(cm,1)];if(opts.indexOf(mkS)<0)opts.push(mkS);
-  var head='<section class="card mes-card"><h2>🗓️ Times do mês</h2><p class="hint">O sorteio vale para o <strong>mês inteiro</strong>: os mesmos times jogam todos os domingos. No mês seguinte, um sorteio novo, bem diferente do anterior.</p><label class="field"><span>Mês</span><select data-act="sortMes">'+opts.map(function(k){return '<option value="'+k+'"'+(k===mkS?' selected':'')+'>'+monthLabel(k,true)+(monthTeams(k)?' ✔':'')+(k===cm?' (atual)':'')+'</option>';}).join('')+'</select></label>'+
+  var head='<section class="card mes-card"><h2>🗓️ Times do mês</h2><p class="hint">O sorteio vale para o <strong>mês inteiro</strong>. Os times valem para as rodadas do mês. A Diretoria pode fazer um novo sorteio para o mês seguinte.</p><label class="field"><span>Mês</span><select data-act="sortMes">'+opts.map(function(k){return '<option value="'+k+'"'+(k===mkS?' selected':'')+'>'+monthLabel(k,true)+(monthTeams(k)?' ✔':'')+(k===cm?' (atual)':'')+'</option>';}).join('')+'</select></label>'+
     (monthTeams(mkS)?'<p class="ok">✔ Times de '+monthName(mkS)+' já confirmados.'+(S.current&&!S.current.confirmed?' Há mudanças ainda não confirmadas.':'')+'</p>':'<p class="meta">Os times de '+monthName(mkS)+' ainda não foram sorteados.</p>')+'</section>';
   if(!S.players.length)return head+'<p class="empty">Cadastre os jogadores primeiro. <button type="button" class="link" data-act="tab" data-tab="jogadores">Ir para Jogadores</button></p>';
   var n=S.present.length,T=S.settings.teams;
@@ -593,7 +605,7 @@ function viewSorteio(){
   h+='<section class="card"><h2>Formato</h2><div class="setting"><span>Times</span><div class="stepper"><button type="button" data-act="teams" data-d="-1" aria-label="Menos times"'+(T<=2?' disabled':'')+'>−</button><output>'+T+'</output><button type="button" data-act="teams" data-d="1" aria-label="Mais times"'+(T>=6?' disabled':'')+'>+</button></div></div>';
   if(!err&&!S.settings.arrival)h+='<p class="hint">'+(ext?ext+' equipe(s) com '+(base+1)+' atletas e '+(T-ext)+' com '+base+'.':T+' times de '+base+' jogadores.')+' O Snake Draft alterna a ordem dos times por faixa de estrelas.</p>';
   h+='<div class="setting"><span>Jogadores em campo por time</span><div class="stepper"><button type="button" data-act="starters" data-d="-1" aria-label="Menos titulares"'+(S.settings.starters<=3?' disabled':'')+'>−</button><output>'+S.settings.starters+'</output><button type="button" data-act="starters" data-d="1" aria-label="Mais titulares"'+(S.settings.starters>=11?' disabled':'')+'>+</button></div></div>';
-  h+='<p class="hint">No domingo, os '+S.settings.starters+' primeiros de cada time a chegar começam jogando. Por isso o sorteio equilibra o elenco inteiro de cada time.</p>';
+  h+='<p class="hint">Na partida, os '+S.settings.starters+' primeiros de cada time a chegar começam jogando. Por isso o sorteio equilibra o elenco inteiro de cada time.</p>';
   h+=(err?'<p class="warn">'+esc(err)+'</p>':'')+'<button type="button" class="btn draw" data-act="draw"'+(err?' disabled':'')+'>'+(S.current?'Sortear de novo':'Sortear times de '+monthName(ui.sortMes||curMonthKey()))+'</button></section>';
   h+=viewResult();
   if(monthTeams(mkS))h+='<section class="card"><h2>Campinho confirmado de '+esc(monthName(mkS))+'</h2>'+campoHTML(monthTeamObjs(monthTeams(mkS)),{},mkS)+'</section>';
@@ -626,7 +638,6 @@ function viewResult(){
     h+='</ol></article>';
   });
   h+='</div><div class="btnrow"><button type="button" class="btn" data-act="share">Copiar para o WhatsApp</button>'+(S.current.confirmed||!ed?'':'<button type="button" class="btn primary" data-act="confirm"'+(ui.busy?' disabled':'')+'>Confirmar e salvar</button>')+'</div>';
-  if(ed)h+='<label class="mini"><input type="checkbox" data-act="shareStars"'+(S.settings.shareStars?' checked':'')+'> incluir as notas no texto do grupo</label>';
   if(ed&&!S.current.confirmed)h+='<p class="hint">Confirmar guarda o sorteio no histórico e alimenta o rodízio das próximas semanas.</p>';
   return h+'</section>';
 }
@@ -666,7 +677,27 @@ function criteriosHTML(open){
    CRITERIOS.map(function(c){return '<div class="crit-i"><h3>'+c[0]+' '+c[1]+'</h3><p><strong>🏆 Bola cheia:</strong> '+c[2]+'</p><p><strong>🎈 Bola murcha:</strong> '+c[3]+'</p></div>';}).join('')+
    '<p class="hint">Bola murcha é brincadeira de pelada: é sobre o jogo do dia, nunca sobre a pessoa.</p></details>';
 }
-function juriGame(){if(ui.juriGame)return findGame(ui.juriGame);for(var i=0;i<S.history.length;i++){var g=S.history[i];if(g.teams.some(function(t){return t.length;}))return g;}return S.history[0]||null;}
+function juriGame(){
+  var selected=ui.juriGame&&findGame(ui.juriGame);
+  if(selected)return selected;
+  var now=dateBR();
+  return gameOnDay(now)||S.history.filter(function(game){return dateBR(game.date)>now;}).at(-1)||S.history[0]||null;
+}
+function gameOnDay(day){return S.history.find(function(game){return dateBR(game.date)===day;})||null;}
+function selectVote(game){
+  ui.perfil=null;ui.editGame=null;ui.juriGame=game.id;ui.tab='votacao';resetVote();
+}
+function newMatch(day,opponent){
+  var date=new Date(day+'T12:00:00-03:00'),month=day.slice(0,7),teams=monthTeams(month),names={};
+  if(teams)teams.flat().forEach(function(id){var player=byId(id);if(player)names[id]=player.name;});
+  var fixture=S.info.proximoJogo,field=fixture?.date===day?fixture.campo:curField().id;
+  var game=normGame({
+    id:uid(),date:date.getTime(),teams:teams||[[],[]],names:names,campo:field,
+    stats:{},cob:{e:false},adv:opponent,juri:{final:false,votos:[]}
+  });
+  S.history.push(game);S.history.sort(function(a,b){return b.date-a.date;});
+  return game;
+}
 function gamePlayers(g){var ids=[];g.teams.forEach(function(t){t.forEach(function(id){ids.push(id);});});return ids.map(function(id){return {id:id,name:gameName(g,id)};}).sort(function(a,b){return a.name.localeCompare(b.name,'pt-BR');});}
 function apurar(g,tp){
   var c={},n=0;g.juri.votos.forEach(function(v){if(v[tp]){c[v[tp]]=(c[v[tp]]||0)+1;n++;}});
@@ -690,28 +721,34 @@ function apurHTML(g,tp,label,withTie){
   }
   return h+'</div>';
 }
-/* ===== VOTAÇÃO: jogos que ainda não foram registrados (domingo passado, hoje/próximo e o seguinte) ===== */
 function upcomingVoteDates(){
-  var now=new Date(),t0=new Date(now.getFullYear(),now.getMonth(),now.getDate()),out=[],reg=function(iso){return S.history.some(function(g){return isoDate(new Date(g.date))===iso;});};
-  var thisOrNext=new Date(t0);thisOrNext.setDate(thisOrNext.getDate()+((7-t0.getDay())%7));
-  var ds=[];if(t0.getDay()!==0){var ls=new Date(t0);ls.setDate(ls.getDate()-t0.getDay());ds.push(ls);}   /* domingo passado, se esqueceram de registrar */
-  ds.push(thisOrNext);var nx=new Date(thisOrNext);nx.setDate(nx.getDate()+7);ds.push(nx);
-  ds.forEach(function(d){var iso=isoDate(d);if(!reg(iso))out.push({iso:iso,d:d,mk:iso.slice(0,7),t:monthTeams(iso.slice(0,7))});});
-  return out;
+  var today=new Date(dateBR()+'T12:00:00-03:00'),weekday=today.getUTCDay();
+  var sunday=new Date(today);
+  sunday.setUTCDate(sunday.getUTCDate()-weekday);
+  var dates=[0,7,14].map(function(offset){
+    var day=new Date(sunday);day.setUTCDate(day.getUTCDate()+offset);return dateBR(day);
+  });
+  var fixture=S.info.proximoJogo;
+  if(fixture?.date&&fixture.date>=dates[0])dates.push(fixture.date);
+  return [...new Set(dates)].sort().filter(function(day){return !gameOnDay(day);});
 }
 function upcomingVoteHTML(){
-  var U=upcomingVoteDates();if(!U.length)return '';
-  var h='<section class="card up"><h2>📅 Próximos jogos</h2><p class="hint">O jogo do dia já vem com os times do mês. Toque em <strong>Iniciar votação</strong>, tire quem não foi (✕) e vote. Nada vai para o site antes do primeiro voto ser salvo.</p>';
-  U.forEach(function(u){
-    var lbl=u.d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit'}),hoje=isoDate(new Date())===u.iso;
-    h+='<div class="upg"><div class="upg-i"><strong>'+esc(lbl.charAt(0).toUpperCase()+lbl.slice(1))+(hoje?' · hoje':'')+'</strong><small>'+(u.t?'Times de '+monthName(u.mk)+': 🔴 '+u.t[0].length+' x '+u.t[1].length+' 🟢':'Os times de '+monthName(u.mk)+' ainda não foram cadastrados (aba Sorteio).')+'</small></div>'+
-      '<button type="button" class="btn primary" data-act="vStart" data-date="'+u.iso+'"'+(u.t?'':' disabled')+'>Iniciar votação</button></div>';
+  var dates=upcomingVoteDates();if(!dates.length)return '';
+  var h='<section class="card up"><h2>Partidas sem súmula</h2><p class="hint">Ao preparar a votação, a partida fica registrada com os times do mês. Confira a presença dos atletas antes de votar.</p>';
+  dates.forEach(function(day){
+    var date=new Date(day+'T12:00:00-03:00'),today=dateBR()===day,month=day.slice(0,7),teams=monthTeams(month);
+    var label=date.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit',timeZone:'America/Sao_Paulo'});
+    h+='<div class="upg"><div class="upg-i"><strong>'+esc(cap(label))+(today?' · hoje':'')+'</strong><small>'+
+      (teams?'Times de '+monthName(month):'Os atletas podem ser incluídos na súmula.')+'</small></div>'+
+      '<button type="button" class="btn primary" data-act="vStart" data-date="'+day+'">Preparar votação</button></div>';
   });
   return h+'</section>';
 }
 function resetVote(){ui.tb={};ui.vCheia='';ui.vMurcha='';ui.confirmFin=false;}
 async function castVote(rodada){
   if(!canEditUi()||ui.voting||ui.busy)return;
+  var game=findGame(rodada);
+  if(!game||dateBR(game.date)>dateBR())return;
   var craque=ui.vCheia, bola_murcha=ui.vMurcha;
   if(!craque||!bola_murcha||craque===bola_murcha){toast('Escolha dois atletas diferentes.');return;}
   ui.voting=true;
@@ -738,15 +775,18 @@ function viewVotacao(){
   var upH='<section class="card month-vote-summary"><h2>Votação &amp; Mês</h2><p>'+esc(monthLabel(current,true))+'</p><dl>'+
     '<div><dt>Jogos válidos</dt><dd>'+summary.jogos+'</dd></div><div><dt>Vitórias do Vermelho</dt><dd>'+summary.w[0]+'</dd></div>'+
     '<div><dt>Vitórias do Verde</dt><dd>'+summary.w[1]+'</dd></div><div><dt>Empates</dt><dd>'+summary.e+'</dd></div></dl></section>'+upcomingVoteHTML();
-  if(!S.history.length)return upH+'<p class="empty">A votação aparece depois da primeira pelada confirmada no Sorteio.</p>'+criteriosHTML(false);
+  if(!S.history.length)return upH+'<p class="empty">A votação aparece assim que uma partida é registrada.</p>'+criteriosHTML(false);
   var g=juriGame();if(!g)return upH;
-  var gd=function(x){return new Date(x.date).toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'});};
+  var gd=function(x){return new Date(x.date).toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',timeZone:'America/Sao_Paulo'});};
   var V=g.juri.votos,fin=g.juri.final,h=upH+'<section class="card"><h2>🗳️ Votação da rodada</h2><p class="hint">Só a diretoria vê esta aba. Cada votante escolhe o <strong>bola cheia (craque)</strong> e o <strong>bola murcha</strong>. Até 5 votantes.</p>';
-  if(S.history.length>1)h+='<label class="field"><span>Pelada</span><select data-act="juriGame">'+S.history.slice(0,12).map(function(x){return '<option value="'+x.id+'"'+(x.id===g.id?' selected':'')+'>'+esc(gd(x))+(x.juri.final?' · finalizada':'')+'</option>';}).join('')+'</select></label>';
+  if(S.history.length>1)h+='<label class="field"><span>Pelada</span><select data-act="juriGame">'+S.history.filter(function(x,i){return i<12||x.id===g.id;}).map(function(x){return '<option value="'+esc(x.id)+'"'+(x.id===g.id?' selected':'')+'>'+esc(gd(x))+(x.juri.final?' · finalizada':'')+'</option>';}).join('')+'</select></label>';
   else h+='<p class="meta">Pelada de '+esc(gd(g))+'</p>';
   h+='<p class="meta">Votos computados: <strong>'+V.length+' de 5</strong> · Um voto por conta autenticada.</p>';
   if(!fin){
-    if(V.length<5){
+    var candidates=gamePlayers(g);
+    if(dateBR(g.date)>dateBR())h+='<p class="hint">Votação preparada. Os votos podem ser registrados a partir do dia do jogo.</p>';
+    else if(candidates.length<2)h+='<p class="hint">Adicione ao menos dois atletas com time definido na súmula para votar.</p><button type="button" class="btn" data-act="voteToGame" data-id="'+esc(g.id)+'">Editar a súmula desta partida</button>';
+    else if(V.length<5){
       h+='<div class="vform">';
       h+='<p class="hint">Selecione um atleta para cada prêmio e confirme seu voto.</p>';
       var nIn=gameRoster(g).length,outL=(ui.vOutL&&ui.vOutL[g.id])||[];
@@ -1128,7 +1168,10 @@ function startVoice(game){
     if(input&&ui.editGame===game.id)input.value=draft.text;
   };
   recognition.onend=function(){voiceRecognition=null;draft.listening=false;render();};
-  recognition.onerror=function(){toast('O ditado não recebeu áudio. Você ainda pode revisar ou colar a transcrição.');};
+  recognition.onerror=function(event){
+    var denied=event.error==='not-allowed'||event.error==='service-not-allowed';
+    toast(denied?'Autorize o microfone no navegador ou cole a transcrição.':'O ditado não recebeu áudio. Você pode colar a transcrição.');
+  };
   try{recognition.start();render();}catch(error){voiceRecognition=null;draft.listening=false;toast('Não consegui iniciar o microfone.');}
 }
 async function applyVoice(game){
@@ -1148,7 +1191,15 @@ async function applyVoice(game){
   var cheia=result.awards.cheia?.atleta||game.cheia,murcha=result.awards.murcha?.atleta||game.murcha;
   if(cheia&&cheia===murcha){toast('A súmula ficaria com o mesmo atleta nos dois prêmios.');return;}
   if(Object.keys(result.goals).some(function(id){return (game.stats[id]?.g||0)+result.goals[id]>30;})){toast('Confira a quantidade de gols.');return;}
-  if(result.score){game.placar=result.score;game.valida=true;game.vencedor=null;}
+  var changes={v:0,g:0};
+  Object.entries(result.goals).forEach(function([id,count]){
+    var team=gameTeamIndex(game,id);
+    if(team===0)changes.v+=count;
+    if(team===1)changes.g+=count;
+  });
+  var nextScore=result.score||(changes.v||changes.g?scoreAfterCredits(game,changes):game.placar);
+  if(nextScore&&(nextScore.v>50||nextScore.g>50)){toast('Confira o placar antes de aplicar a transcrição.');return;}
+  if(nextScore){game.placar=nextScore;game.valida=true;game.vencedor=null;lockLiveGoals(game);}
   Object.entries(result.goals).forEach(function([id,n]){var stats=game.stats[id]||{g:0,a:0,y:0,r:0,pen:0,fal:0,og:0};stats.g+=n;game.stats[id]=stats;game.cob.g=true;});
   game.resenha=game.resenha||{};
   Object.entries(result.awards).forEach(function([kind,award]){game[kind]=award.atleta;game.resenha[kind]=award;});
@@ -1164,6 +1215,13 @@ function scoreFromStats(game){
     var goals=(game.teams[i]||[]).reduce(function(sum,id){return sum+(game.stats[id]?.g||0);},0)+
       (game.teams[1-i]||[]).reduce(function(sum,id){return sum+(game.stats[id]?.og||0);},0);
     return [side,Math.min(50,goals)];
+  }));
+}
+function scoreAfterCredits(game,changes){
+  var credited=scoreFromStats(game),score=game.placar||credited;
+  return Object.fromEntries(['v','g'].map(function(key){
+    var adjustment=changes[key],unattributed=Math.max(0,score[key]-credited[key]);
+    return [key,score[key]+(adjustment>0?Math.max(0,adjustment-unattributed):adjustment)];
   }));
 }
 function lockLiveGoals(game){game.liveGoals.forEach(function(goal){goal.locked=true;});}
@@ -1336,10 +1394,10 @@ function applyPlayerStats(form){
   if(stats.pen+stats.fal>stats.g){toast('Os gols de pênalti e de falta precisam caber no total de gols.');return;}
   var delta=stats.g-Number(previous.g||0),ownDelta=stats.og-Number(previous.og||0),team=gameTeamIndex(game,id);
   if((delta||ownDelta)&&team>=0&&team<2){
-    var score=game.placar||scoreFromStats(game),side=team===0?'v':'g',opponent=side==='v'?'g':'v';
-    var next=score[side]+delta,other=score[opponent]+ownDelta;
-    if(next<0||next>50||other<0||other>50){toast('Confira o placar antes de ajustar os gols deste atleta.');return;}
-    game.placar=Object.assign({},score,{[side]:next,[opponent]:other});lockLiveGoals(game);
+    var side=team===0?'v':'g',opponent=side==='v'?'g':'v';
+    var next=scoreAfterCredits(game,{[side]:delta,[opponent]:ownDelta});
+    if(next.v<0||next.v>50||next.g<0||next.g>50){toast('Confira o placar antes de ajustar os gols deste atleta.');return;}
+    game.placar=next;lockLiveGoals(game);
   }
   if(stats.pen!==Number(previous.pen||0)||stats.fal!==Number(previous.fal||0))lockLiveGoals(game);
   STAT_FIELDS.forEach(function([key]){if(stats[key]!==Number(previous[key]||0))markCob(game,key);});
@@ -1352,18 +1410,19 @@ function viewJogos(){
     var match=findGame(ui.livePanel);
     if(match)return livePanelHTML(match);
   }
-  if(!S.history.length&&canEditUi())return rodadaForm()+'<p class="empty">Nenhuma rodada registrada ainda.</p>'+sumImportHTML()+histImportHTML();
-  if(!S.history.length)return '<p class="empty">Nenhuma pelada salva ainda. Sorteie os times e toque em <strong>Confirmar e salvar</strong>. Depois é aqui que você lança gols, assistências, cartões, bola cheia e bola murcha.</p>';
-  var h='',ed=canEditUi(),lastM=null;
-  if(ed)h+=rodadaForm();
-  S.history.forEach(function(g){
+  var ed=canEditUi(),games=ed?S.history:S.history.filter(hasMatchRecord);
+  if(!games.length&&ed)return rodadaForm()+'<p class="empty">Nenhuma rodada registrada ainda.</p>'+sumImportHTML()+histImportHTML();
+  if(!games.length)return '<p class="empty">Nenhum resultado publicado.</p>';
+  var h=ed?rodadaForm():'',lastM=null;
+  games.forEach(function(g){
     var gm=dateBR(g.date).slice(0,7);if(gm!==lastM){lastM=gm;var ms=monthStandings(gm);h+='<h2 class="mes-h">'+monthLabel(gm,true)+(ms.jogos?'<small class="mes-sc">vitórias no mês: 🔴 '+ms.w[0]+' x '+ms.w[1]+' 🟢'+(ms.e?' · '+ms.e+' empate'+(ms.e>1?'s':''):'')+'</small>':'')+'</h2>';}
     var d=new Date(g.date).toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit',year:'2-digit',timeZone:'America/Sao_Paulo'});
     var open=ui.editGame===g.id&&!g.live,sm=gameSummary(g),scoreGoals=g.placar?g.placar.v+g.placar.g:sm.g;
     var gf=g.campo&&fieldById(g.campo);
     h+='<section class="card hist'+(open?' open':'')+'"><div class="row-between"><h3>'+esc(d)+(gf?'<small class="gcampo">📍 '+esc(gf.name.replace(/^Campo d[oa] /,''))+'</small>':'')+'</h3>'+(ed?'<button type="button" class="del'+(ui.confirmDel===g.id?' sure':'')+'" data-act="delHist" data-id="'+g.id+'" aria-label="Apagar pelada">'+(ui.confirmDel===g.id?'Apagar?':'✕')+'</button>':'')+'</div>';
     if(g.placar)h+=scoreboardHTML(g);
-    if(ed)h+='<div class="btnrow"><button class="btn'+(g.live?' primary':'')+'" type="button" data-act="liveOpen" data-id="'+esc(g.id)+'">'+(g.live?'Registrar gol ao vivo':'Placar ao vivo')+'</button></div>';
+    if(ed)h+='<div class="btnrow"><button class="btn'+(g.live?' primary':'')+'" type="button" data-act="liveOpen" data-id="'+esc(g.id)+'">'+(g.live?'Registrar gol ao vivo':'Placar ao vivo')+'</button>'+
+      '<button class="btn" type="button" data-act="voteOpen" data-id="'+esc(g.id)+'">Votação desta partida</button></div>';
     if(g.obs&&!open)h+='<p class="obs">📝 '+esc(g.obs).replace(/\n/g,'<br>')+'</p>';
     if(ed&&g.juri&&g.juri.final&&g.juri.votos.length&&!open)h+='<details class="vres"><summary>Apuração ('+g.juri.votos.length+' votos)</summary>'+apurHTML(g,'cheia','Bola cheia (craque)',false)+apurHTML(g,'murcha','Bola murcha',false)+'</details>';
     var ros=gameRoster(g);
@@ -1659,8 +1718,8 @@ async function downloadPlayerCard(player){
     ctx.fillStyle=accent;ctx.font='700 104px Arial';ctx.fillText(player.name.split(/\s+/).slice(0,2).map(function(n){return n[0];}).join('').toUpperCase(),360,390);
   }
   ctx.restore();
-  ctx.fillStyle='#f8fbf7';ctx.font='700 49px Arial';ctx.fillText(player.name+(player.num?' #'+player.num:''),360,870,616);
-  ctx.fillStyle=accent;ctx.font='700 25px Arial';ctx.fillText((POS.find(function(x){return x[0]===player.pos;})?.[1]||'Atleta')+'  ·  Nota '+fmt(player.stars),360,923,590);
+  ctx.fillStyle='#f8fbf7';ctx.font='700 49px Arial';ctx.fillText(player.name+(player.num?' · '+player.num:''),360,870,616);
+  ctx.fillStyle=accent;ctx.font='700 25px Arial';ctx.fillText((POS.find(function(x){return x[0]===player.pos;})?.[1]||'Atleta'),360,923,590);
   downloadCanvas(canvas,'fda-atleta-'+player.id.replace(/[^a-z0-9_-]/gi,'')+'.png');
 }
 /* ===== ESTATÍSTICAS v2: filtros, destaques com regra de "dados suficientes" e empate ===== */
@@ -1786,7 +1845,7 @@ function viewPerfil(id){
     (canEditUi()?quickPlayer(p):'');
   var confirmed=monthTeams(curMonthKey());
   var currentTeam=confirmed?confirmed.findIndex(function(t){return t.indexOf(id)>=0;}):-1;
-  h+='<section class="pf-head"><div class="pf-av">'+avatarBtn(p,104)+'</div><div class="pf-id"><h2>'+esc(p.name)+'</h2><div class="pf-meta">'+(p.pos?pbHTML(p.pos)+'<span>'+POS.filter(function(o){return o[0]===p.pos;})[0][1]+'</span>':'<span>Posição não informada</span>')+(p.num?'<span class="pf-num">#'+p.num+'</span>':'')+'</div>'+teamArt('shirt',currentTeam)+(canEditUi()?'<span class="rating">★ '+fmt(p.stars)+' · avaliação técnica</span>':'')+'</div>'+
+  h+='<section class="pf-head"><div class="pf-av">'+avatarBtn(p,104)+'</div><div class="pf-id"><h2>'+esc(p.name)+'</h2><div class="pf-meta">'+(p.pos?pbHTML(p.pos)+'<span>'+POS.filter(function(o){return o[0]===p.pos;})[0][1]+'</span>':'<span>Posição não informada</span>')+(p.num?'<span class="pf-num">'+p.num+'</span>':'')+'</div>'+teamArt('shirt',currentTeam)+(canEditUi()?'<span class="rating">★ '+fmt(p.stars)+' · avaliação técnica</span>':'')+'</div>'+
     (pc!==null?'<div class="ring" style="--p:'+pc+'" role="img" aria-label="Participação '+pc+'%"><b>'+pc+'%</b><span>participação</span></div>':'<div class="ring none"><b>—</b><span>participação</span></div>')+'</section>';
   h+='<div class="pf-grid">'+
     tile('Jogos',pe?x.j:un,pe?('de '+pe+' com escalação'):sem)+
@@ -1916,22 +1975,28 @@ function upcomingFixture(){
   var now=Date.now(),I=S.info,fixture=I.proximoJogo,sunday=nextGame(now);
   if(fixture){
     var date=new Date(fixture.date+'T'+fixture.kickoff+':00-03:00');
-    if(date<=sunday&&now<date.getTime()+90*60000)return {date:date,arrival:fixture.arrival,kickoff:fixture.kickoff,campo:fieldById(fixture.campo),extra:true};
+    var sundayDay=dateBR(sunday),ongoing=now<date.getTime()+90*60000;
+    if(fixture.date<=sundayDay&&ongoing)return {date:date,arrival:fixture.arrival,kickoff:fixture.kickoff,campo:fieldById(fixture.campo),extra:true};
+    if(fixture.date===sundayDay&&!ongoing)sunday.setUTCDate(sunday.getUTCDate()+7);
   }
   return {date:sunday,arrival:I.arrival,kickoff:I.kickoff,campo:curField(),extra:false};
 }
 function nextDue(){
-  var now=new Date(),day=S.info.feeDay;
-  var d=new Date(now.getFullYear(),now.getMonth(),day,23,59);
-  if(now>d)d=new Date(now.getFullYear(),now.getMonth()+1,day,23,59);
-  return d;
+  var today=new Date(dateBR()+'T00:00:00Z'),due=new Date(today);
+  due.setUTCDate(S.info.feeDay);
+  if(due<today)due.setUTCMonth(due.getUTCMonth()+1);
+  return due;
 }
 function liveTeams(mk){
   mk=mk||curMonthKey();
   var t=monthTeams(mk);if(!t)return null;
-  return {month:mk,teams:t,date:nextGame(),campo:curField()};
+  var fixture=upcomingFixture();
+  return {month:mk,teams:t,date:fixture.date,campo:fixture.campo};
 }
-function monthTeamObjs(t){return t.map(function(x){return x.map(byId).filter(Boolean).sort(function(a,b){return (PORD[a.pos]-PORD[b.pos])||(b.stars-a.stars)||a.name.localeCompare(b.name,'pt-BR');});});}
+function publicPlayerOrder(a,b){
+  return (PORD[a.pos]-PORD[b.pos])||a.name.localeCompare(b.name,'pt-BR')||a.id.localeCompare(b.id);
+}
+function monthTeamObjs(t){return t.map(function(x){return x.map(byId).filter(Boolean).sort(publicPlayerOrder);});}
 /* ===== TIMES: escalação por setor e campinho tático ===== */
 var SECT=[['G','🧤','Goleiros'],['D','🛡️','Defensores & Laterais'],['M','⚙️','Meio-Campo'],['A','⚡','Ataque']];
 function sectOf(pos){return pos==='G'?'G':(pos==='Z'||pos==='L')?'D':(pos==='V'||pos==='MA')?'M':pos==='A'?'A':'X';}
@@ -1947,7 +2012,7 @@ function teamSectionsHTML(t,hitIds,team){
 }
 
 function tacticalLineup(players,limit,preferred){
-  var pools=['G','D','M','A'].map(function(key){return players.filter(function(p){return p.pos&&sectOf(p.pos)===key;}).sort(ratingOrder);});
+  var pools=['G','D','M','A'].map(function(key){return players.filter(function(p){return p.pos&&sectOf(p.pos)===key;}).sort(publicPlayerOrder);});
   var slots=[1,4,3,3];
   var offset=0;
   while(slots.reduce(function(a,b){return a+b;},0)>limit){
@@ -1955,10 +2020,10 @@ function tacticalLineup(players,limit,preferred){
     if(slots[lane]>0)slots[lane]--;
   }
   var rows=pools.map(function(pool,i){
-    return pool.slice().sort(function(a,b){return Number(preferred.includes(b.id))-Number(preferred.includes(a.id))||ratingOrder(a,b);}).slice(0,slots[i]);
+    return pool.slice().sort(function(a,b){return Number(preferred.includes(b.id))-Number(preferred.includes(a.id))||publicPlayerOrder(a,b);}).slice(0,slots[i]);
   });
   var selected=new Set(rows.flat().map(function(p){return p.id;}));
-  return {rows:rows,bench:players.filter(function(p){return !selected.has(p.id);}).sort(ratingOrder),slots:slots};
+  return {rows:rows,bench:players.filter(function(p){return !selected.has(p.id);}).sort(publicPlayerOrder),slots:slots};
 }
 function swapTactical(month,index,reserveId,starterId){
   if(!canEditUi())return;
@@ -1978,21 +2043,21 @@ function campoHTML(teams,hitIds,month){
   var i=ui.timeCampo===1?1:0,team=teams[i],col=COLORS[i];
   var record=S.meses[month],picked=record&&record.titulares&&record.titulares[i]||[];
   var tactical=tacticalLineup(team,S.settings.starters,picked),names=['Goleiro','Defesa','Meio-campo','Ataque'];
-  var short=function(p){return p.name.split(/\s+/).slice(0,2).join(' ')+(p.num?' #'+p.num:'');};
-  var rating=function(p){return '<span class="rating-chip">'+esc(fmt(p.stars))+'</span>';};
+  var short=function(p){return p.name.split(/\s+/).slice(0,2).join(' ');};
+  var number=function(p){return p.num?'<span class="shirt-number" aria-label="Camisa '+p.num+'">'+p.num+'</span>':'';};
   var h='<div class="seg2" role="group" aria-label="Time no campinho">'+[0,1].map(function(k){return '<button type="button" data-act="timeCampo" data-i="'+k+'" aria-pressed="'+(k===i)+'">'+COLORS[k].n+' · '+teams[k].length+'</button>';}).join('')+'</div>';
   h+='<div class="tactical-frame"><div class="pitch-x tactical-pitch" style="--bib:'+col.c+'"><svg class="lines" viewBox="0 0 100 150" preserveAspectRatio="none" aria-hidden="true"><rect x="4" y="4" width="92" height="142"/><path d="M4 75h92"/><circle cx="50" cy="75" r="13"/><rect x="25" y="4" width="50" height="21"/><rect x="25" y="125" width="50" height="21"/></svg>';
   [3,2,1,0].forEach(function(lane){
     var row=tactical.rows[lane];
     h+='<section class="tactical-lane" aria-label="'+names[lane]+'"><small>'+names[lane]+'</small><div class="tactical-nodes">'+row.map(function(p){
-      return '<button type="button" class="tactical-player'+(hitIds[p.id]?' me':'')+'" data-act="perfil" data-id="'+esc(p.id)+'">'+teamArt('shirt',i)+'<strong>'+esc(short(p))+'</strong><span>'+esc(POSSHORT[p.pos]||'—')+' '+rating(p)+'</span></button>';
+      return '<button type="button" class="tactical-player'+(hitIds[p.id]?' me':'')+'" data-act="perfil" data-id="'+esc(p.id)+'">'+teamArt('shirt',i)+'<strong>'+esc(short(p))+'</strong><span>'+esc(POSSHORT[p.pos]||'—')+' '+number(p)+'</span></button>';
     }).join('')+(row.length<tactical.slots[lane]?'<span class="tactical-vacancy">'+(tactical.slots[lane]-row.length)+' vaga(s)</span>':'')+'</div></section>';
   });
   h+='</div><aside class="tactical-bench"><h3>Banco de reservas &amp; disponíveis</h3>';
   if(!tactical.bench.length)h+='<p class="hint">Sem atletas no banco.</p>';
   h+='<ul>'+tactical.bench.map(function(p){
     var options=tactical.rows.flat().filter(function(starter){return p.pos&&sectOf(p.pos)===sectOf(starter.pos);});
-    return '<li>'+teamArt('shirt',i)+'<span>'+nameLink(p,p.id)+'<small>'+esc(POSSHORT[p.pos]||'Sem posição')+'</small></span>'+rating(p)+
+    return '<li>'+teamArt('shirt',i)+'<span>'+nameLink(p,p.id)+'<small>'+esc(POSSHORT[p.pos]||'Sem posição')+'</small></span>'+number(p)+
       (canEditUi()&&options.length?'<select aria-label="Permutar '+esc(p.name)+' com titular" data-act="tacticalSwap" data-id="'+esc(p.id)+'" data-month="'+month+'" data-team="'+i+'"><option value="">Permutar com…</option>'+options.map(function(starter){return '<option value="'+esc(starter.id)+'">'+esc(starter.name)+'</option>';}).join('')+'</select>':'')+'</li>';
   }).join('')+'</ul></aside></div>';
   return h;
@@ -2007,9 +2072,11 @@ function teamsBlock(inAvisos){
   if(!L)return inAvisos?'':picker+'<p class="empty">A escalação de '+monthName(selected)+' ainda não foi publicada.</p>';
   var teams=monthTeamObjs(L.teams),q=norm(ui.findName||''),hits=[];
   if(q.length>=2)teams.forEach(function(t,i){t.forEach(function(p){if(norm(p.name).indexOf(q)>=0)hits.push({p:p,i:i});});});
-  var d=L.date.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit'});
+  var d=L.date.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit',timeZone:'America/Sao_Paulo'});
+  var name=esc(L.campo.name),fieldLink=L.campo.maps?
+    '<a class="link" href="'+esc(L.campo.maps)+'" target="_blank" rel="noopener noreferrer" aria-label="Como chegar ao '+name+'">'+name+'</a>':name;
   var h='<section class="card tweek" id="times-semana"><h2>Times de '+monthName(L.month)+'</h2>'+picker+
-    (L.month===current?'<p class="tw-sub">Próximo jogo: '+esc(d)+' · '+esc(L.campo.name)+(L.campo.principal?'':' <strong class="warn-t">(mudança de campo)</strong>')+'</p>':'');
+    (L.month===current?'<p class="tw-sub">Próximo jogo: '+esc(d)+' · '+fieldLink+(L.campo.principal?'':' <strong class="warn-t">(mudança de campo)</strong>')+'</p>':'');
   h+='<label class="field find"><span>Ache seu nome</span><input id="findName" type="search" autocomplete="off" placeholder="Digite seu nome para achar seu time..." value="'+esc(ui.findName||'')+'"></label>';
   if(q.length>=2){
     if(!hits.length)h+='<p class="find-res none">Não achei esse nome. Confira a escrita ou fale com a diretoria.</p>';
@@ -2019,14 +2086,14 @@ function teamsBlock(inAvisos){
   var hitIds={};hits.forEach(function(x){hitIds[x.p.id]=1;});
   if(inAvisos){
     h+='<div class="tw-grid">'+teams.map(function(t,i){var col=COLORS[i%COLORS.length];return '<div class="tw-team" style="--bib:'+col.c+';--bibt:'+col.t+'"><div class="tw-h">'+teamArt('shirt',i)+'<span>'+col.n+'</span><small>'+t.length+'</small></div><ul>'+t.map(function(p){return '<li'+(hitIds[p.id]?' class="me"':'')+'>'+kitAvatar(p,26,i)+'<span class="nm">'+nameLink(p,p.id)+'</span>'+(p.pos==='G'?'<span class="pb pb-g">GOL</span>':'')+'</li>';}).join('')+'</ul></div>';}).join('')+'</div>';
-    if(!canEditUi())h+='<button type="button" class="btn wide primary" style="margin-top:14px" data-act="tab" data-tab="sorteio">Ver escalação completa e campinho tático →</button>';
+    if(!canEditUi())h+='<button type="button" class="btn wide primary" style="margin-top:14px" data-act="tab" data-tab="times">Ver escalação completa e campinho tático →</button>';
   }else{
     var vw=ui.timesView==='lista'?'lista':'campo';
     h+='<div class="vtoggle" role="group" aria-label="Forma de visualizar os times"><button type="button" data-act="timesView" data-v="campo" aria-pressed="'+(vw==='campo')+'">Campinho tático</button><button type="button" data-act="timesView" data-v="lista" aria-pressed="'+(vw==='lista')+'">Lista completa</button></div>';
     if(vw==='lista')h+='<div class="tw-grid full">'+teams.map(function(t,i){var col=COLORS[i%COLORS.length];return '<article class="tw-team" style="--bib:'+col.c+';--bibt:'+col.t+'">'+lineupKit(t,i)+teamSectionsHTML(t,hitIds,i)+'</article>';}).join('')+'</div>';
     else h+=campoHTML(teams,hitIds,L.month);
   }
-  h+='<p class="note-arr">📅 Os mesmos times jogam todos os domingos de '+monthName(L.month)+'. ⏰ Em cada time, os '+S.settings.starters+' primeiros a chegar começam jogando.</p></section>';
+  h+='<p class="note-arr">📅 Os times valem para as rodadas de '+monthName(L.month)+'. ⏰ Em cada time, os '+S.settings.starters+' primeiros a chegar começam jogando.</p></section>';
   return h;
 }
 /* ===== DARK STADIUM · auxiliares visuais ===== */
@@ -2120,7 +2187,10 @@ function teamSeal(i){
 function cdParts(fixture){var t=(fixture||upcomingFixture()).date.getTime()-Date.now();if(t<=0)return null;var s=Math.floor(t/1000);return {d:Math.floor(s/86400),h:Math.floor(s%86400/3600),m:Math.floor(s%3600/60),s:s%60};}
 function countdownHTML(fixture){
   var c=cdParts(fixture);
-  if(!c)return '<div class="live" role="status"><span class="live-dot"></span>Bola rolando agora!</div>';
+  if(!c){
+    var live=gameOnDay(dateBR(fixture.date))?.live;
+    return '<div class="live" role="status">'+(live?'<span class="live-dot"></span>Placar ao vivo':'Horário da partida')+'</div>';
+  }
   var box=function(k,v,l){return '<div class="cd"><b data-cd="'+k+'">'+p2(v)+'</b><span>'+l+'</span></div>';};
   return '<div class="cd-l">Faltam</div><div class="countdown" id="countdown" role="timer" aria-label="Faltam '+c.d+' dias, '+c.h+' horas e '+c.m+' minutos">'+box('d',c.d,'dias')+box('h',c.h,'horas')+box('m',c.m,'min')+box('s',c.s,'seg')+'</div>';
 }
@@ -2174,9 +2244,9 @@ function weeklyHighlightsHTML(){
     }).join('')+'</div></section>';
 }
 function matchCenter(){
-  var fixture=upcomingFixture(),ng=fixture.date,live=!cdParts(fixture),campo=fixture.campo;
+  var fixture=upcomingFixture(),ng=fixture.date,campo=fixture.campo;
   var weekday=cap(ng.toLocaleDateString('pt-BR',{weekday:'long',timeZone:'America/Sao_Paulo'}));
-  var st=live?'Bola rolando agora':'Próximo jogo • '+weekday+' '+esc(fixture.kickoff);
+  var st=weekday+' · '+esc(fixture.kickoff);
   var ds=dateBR(ng).slice(5).split('-').reverse().join('/');
   var h='<section class="mc" aria-label="Próximo jogo" data-kickoff="'+ng.getTime()+'"><div class="mc-status"><i></i>'+st+'</div>';
   if(fixture.extra){
@@ -2208,23 +2278,23 @@ function lineupBrief(){
     '<button type="button" class="btn wide" data-act="openLineup" data-month="'+month+'">Ver escalação completa</button></section>';
 }
 function viewAvisos(){
-  var I=S.info,now=new Date(),ed=canEditUi();
-  var due=nextDue(),dd=Math.round((new Date(due.getFullYear(),due.getMonth(),due.getDate())-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/86400000);
+  var I=S.info,ed=canEditUi(),due=nextDue();
+  var dd=Math.round((due.getTime()-Date.parse(dateBR()))/86400000);
   var h='<section class="club-intro"><div><h2>O clube</h2><p>'+esc(I.descricao||('Domingos no '+curField().name+'.'))+'</p></div><div class="btnrow">'+
     '<button type="button" class="btn primary" data-act="tab" data-tab="tv">Assistir à FDA TV</button><button type="button" class="btn" data-act="tab" data-tab="lances">Ver os lances</button></div></section>'+
     '<div class="broadcast-grid">'+matchCenter()+lineupBrief()+'</div>'+latestResultHTML()+weeklyHighlightsHTML()+partyCard()+
     '<div class="btnrow"><button type="button" class="btn" data-act="tab" data-tab="jogos">Histórico de jogos</button><button type="button" class="btn" data-act="openJournal">Notícias do clube</button></div>'+fieldCard(ed)+pinnedTeaser();
-  h+='<section class="card due'+(dd<=3?' soon':'')+'"><div><h2>Mensalidade</h2><p>Pagamento até o dia '+I.feeDay+' de cada mês.</p></div><div class="due-box"><span class="big">'+due.getDate()+'/'+String(due.getMonth()+1).padStart(2,'0')+'</span><span>'+(dd===0?'vence hoje':dd===1?'vence amanhã':'faltam '+dd+' dias')+'</span></div></section>';
+  h+='<section class="card due'+(dd<=3?' soon':'')+'"><div><h2>Mensalidade</h2><p>Pagamento até o dia '+I.feeDay+' de cada mês.</p></div><div class="due-box"><span class="big">'+due.getUTCDate()+'/'+String(due.getUTCMonth()+1).padStart(2,'0')+'</span><span>'+(dd===0?'vence hoje':dd===1?'vence amanhã':'faltam '+dd+' dias')+'</span></div></section>';
   h+='<section class="card" id="notices-section"><h2>Avisos e regras</h2>';
-  if(!I.notices.length)h+='<p class="hint">Nenhum aviso no momento.</p>';
+  var active=I.notices.filter(noticeCurrent),archived=I.notices.filter(function(n){return !active.includes(n)&&!/(festa|camisa).*100 anos/i.test(n.text);});
+  if(!active.length)h+='<p class="hint">Nenhum aviso no momento.</p>';
   h+='<ul class="notices">';
-  var active=I.notices.filter(noticeCurrent);
   active.forEach(function(n){
     if(ed)h+='<li><textarea class="ntext" rows="2" maxlength="240" data-act="notice" data-id="'+esc(n.id)+'" aria-label="Editar aviso">'+esc(n.text)+'</textarea><label class="field">Válido até<input type="date" data-act="noticeExpiry" data-id="'+esc(n.id)+'" value="'+esc(noticeDay(n))+'"></label><button type="button" class="del'+(ui.confirmDel===n.id?' sure':'')+'" data-act="delNotice" data-id="'+esc(n.id)+'" aria-label="Apagar aviso">'+(ui.confirmDel===n.id?'Apagar?':'✕')+'</button></li>';
     else h+='<li><span class="nb" aria-hidden="true">📌</span><span>'+esc(n.text)+'</span></li>';
   });
   h+='</ul>';
-  if(active.length!==I.notices.length)h+='<details class="notice-history"><summary>Histórico de avisos</summary><ul>'+I.notices.filter(function(n){return !noticeCurrent(n)&&!/(festa|camisa).*100 anos/i.test(n.text);}).map(function(n){return '<li>'+esc(n.text)+'</li>';}).join('')+'</ul></details>';
+  if(archived.length)h+='<details class="notice-history"><summary>Histórico de avisos</summary><ul>'+archived.map(function(n){return '<li>'+esc(n.text)+'</li>';}).join('')+'</ul></details>';
   if(ed)h+='<div class="addrow one"><input id="newnotice" type="text" maxlength="240" placeholder="Novo aviso" autocomplete="off"><button type="button" class="btn primary" data-act="addNotice">Adicionar aviso</button></div>';
   h+='<button type="button" class="btn wide" data-act="shareAvisos" style="margin-top:12px">Copiar avisos para o WhatsApp</button></section>';
   return h;
@@ -2333,39 +2403,95 @@ function viewSettings(){
           return '<label class="field">'+label+'<input type="'+(key==='maps'?'url':'text')+'" maxlength="'+max+'" data-act="fieldEdit" data-k="'+key+'" data-id="'+esc(field.id)+'" value="'+esc(field[key])+'"></label>';
         }).join('')+filePick(field.photo?'Trocar foto':'Enviar foto','__field__'+field.id,'btn sm')+'</fieldset>';
     }).join('')+(I.fields.length<6?'<form id="add-field" class="addrow"><label class="field">Nome do novo campo<input name="name" maxlength="50" required></label><button type="submit" class="btn">Adicionar campo</button></form>':'')+'</section>'+
-    '<section class="card admin-section"><h3>Redes sociais e mensalidade</h3>'+REDES.map(function(r){
+    eventSettings(I.festa)+'<section class="card admin-section"><h3>Redes sociais e mensalidade</h3>'+REDES.map(function(r){
       return '<label class="field">'+r[1]+'<input type="url" maxlength="300" value="'+esc(I.redes[r[0]]||'')+'" data-act="rede" data-k="'+r[0]+'"></label>';
     }).join('')+'<label class="field">Dia do pagamento<input type="number" min="1" max="28" inputmode="numeric" value="'+I.feeDay+'" data-act="info" data-k="feeDay"></label></section>'+
     '<section class="card admin-section"><h3>Minha senha</h3><form id="own-password"><label class="field">Nova senha<input type="password" name="password" autocomplete="new-password" minlength="12" maxlength="72" required></label>'+
     '<button class="btn" type="submit">Alterar minha senha</button><p class="hint" role="status"></p></form></section>';
 }
 function saveFixture(form){
+  if(!canEditUi()||ui.busy)return;
   var value=new FormData(form),date=validDay(value.get('date')),kickoff=normTime(value.get('kickoff'),''),arrival=normTime(value.get('arrival'),''),campo=value.get('campo');
   if(!date||!kickoff||!fieldById(campo)){toast('Confira a data, o campo e o horário.');return;}
   if(arrival&&arrival>kickoff){toast('A chegada precisa ser antes do jogo.');return;}
   if(new Date(date+'T'+kickoff+':00-03:00').getTime()+90*60000<=Date.now()){toast('Escolha um jogo futuro.');return;}
-  S.info.proximoJogo={date:date,kickoff:kickoff,arrival:arrival,campo:campo};change();
+  var previous=S.info.proximoJogo;
+  if(previous?.date!==date)removePendingFixture(previous);
+  S.info.proximoJogo={date:date,kickoff:kickoff,arrival:arrival,campo:campo};
+  var game=gameOnDay(date);
+  if(!game){game=newMatch(date,'');game.agenda=true;}
+  if(!hasMatchRecord(game))game.campo=campo;
+  ui.juriGame=game.id;resetVote();
+  change();save();
+}
+function hasMatchRecord(game){
+  return !!(game.live||game.placar||game.sumula||game.obs||game.cheia||game.murcha||
+    game.vencedor!==null||!game.valida||game.juri?.final||game.juri?.votos.length||
+    Object.values(game.cob).some(Boolean));
+}
+function removePendingFixture(fixture){
+  if(!fixture||new Date(fixture.date+'T'+fixture.kickoff+':00-03:00').getTime()<=Date.now())return;
+  var game=gameOnDay(fixture.date);
+  if(game?.agenda&&!hasMatchRecord(game)&&S.current?.histId!==game.id){
+    S.history=S.history.filter(function(entry){return entry.id!==game.id;});
+    if(ui.juriGame===game.id){ui.juriGame=null;resetVote();}
+  }
+}
+function eventSettings(event){
+  var value=event||{};
+  return '<section class="card admin-section"><h3>Evento do clube</h3><form id="club-event">'+
+    '<label class="field">Título do evento<input name="title" maxlength="90" required value="'+esc(value.title||'')+'"></label>'+
+    '<label class="field">Local do evento<input name="local" maxlength="150" required value="'+esc(value.local||'')+'"></label>'+
+    '<label class="field">Detalhes<textarea name="details" rows="2" maxlength="140">'+esc(value.details||'')+'</textarea></label>'+
+    '<div class="grid2"><label class="field">Data do evento<input type="date" name="date" required value="'+(value.date||'')+'"></label>'+
+    '<label class="field">Prazo do pagamento<input type="date" name="deadline" value="'+(value.deadline||'')+'"></label>'+
+    '<label class="field">Valor família (R$)<input type="number" name="family" min="0" max="10000" step=".01" value="'+(value.family||'')+'"></label>'+
+    '<label class="field">Valor individual (R$)<input type="number" name="individual" min="0" max="10000" step=".01" value="'+(value.individual||'')+'"></label></div>'+
+    '<label class="field">Chave PIX<input name="pix" maxlength="180" value="'+esc(value.pix||'')+'"></label>'+
+    '<label class="field">Cartaz do evento<input type="file" name="poster" accept="image/png,image/jpeg,image/webp"></label>'+
+    (value.poster?'<label class="mini"><input type="checkbox" name="removePoster"> Retirar o cartaz atual</label>':'')+
+    '<div class="btnrow"><button class="btn primary" type="submit">Salvar evento</button>'+
+    (event?'<button class="btn" type="button" data-act="hideEvent">'+(event.hidden?'Exibir evento no site':'Ocultar evento no site')+'</button>':'')+'</div><p role="status"></p></form></section>';
+}
+async function saveEvent(form){
+  if(!canEditUi()||ui.busy||ui.eventSaving)return;
+  var values=new FormData(form),file=values.get('poster'),status=form.querySelector('[role=status]');
+  var next=normEvent(Object.assign(Object.fromEntries(values),{poster:values.has('removePoster')?'':S.info.festa?.poster||'',hidden:S.info.festa?.hidden}));
+  if(!next?.title||!next.local){status.textContent='Preencha a data, o título e o local do evento.';return;}
+  if((next.deadline&&next.deadline>next.date)||(next.pix&&!next.deadline)){
+    status.textContent='Informe um prazo de pagamento até a data do evento.';return;
+  }
+  ui.eventSaving=true;
+  try{
+    if(file?.size)next.poster=await readBig(file);
+    S.info.festa=next;change();await save();
+  }catch(error){status.textContent='Não foi possível abrir o cartaz. Tente outra imagem.';}
+  finally{ui.eventSaving=false;}
 }
 function partyCard(){
-  var event=S.info.festa||FESTA_11,today=dateBR();
-  if(today>event.date)return '';
-  var open=today<=event.deadline;
+  var event=S.info.festa,today=dateBR();
+  if(!event||event.hidden||today>event.date)return '';
+  var dateText=function(day){return day.split('-').reverse().join('/');};
+  var open=event.deadline&&today<=event.deadline;
   return '<section class="card party-card" aria-labelledby="party-title">'+
-    '<a href="/assets/festa-11-anos.jpeg" class="party-image"><img src="/assets/festa-11-anos.jpeg" alt="Cartaz oficial da festa de 11 anos do Futebol dos Amigos em 22 de novembro de 2026" width="1254" height="1254"></a>'+
-    '<div class="party-content"><span class="party-deadline">'+(open?'Pagamento até 15/11/2026':'Prazo de pagamento encerrado em 15/11/2026')+'</span>'+
-    '<h2 id="party-title">Festa de 11 anos do Futebol dos Amigos</h2><p><time datetime="2026-11-22">22/11/2026</time> · Espaço com piscina, chopp e churrasco</p>'+
-    '<p>'+esc(event.local)+'</p><div class="party-pricing"><strong>'+money(event.family)+' <small>Família</small></strong><strong>'+money(event.individual)+' <small>Individual / sozinho(a)</small></strong></div>'+
-    (open?'<div class="party-pix"><code>'+esc(event.pix)+'</code><button type="button" class="btn" data-act="partyPix">'+(ui.partyCopied?'Chave PIX Copiada!':'Copiar Chave PIX')+'</button></div>':'')+'</div></section>';
+    (event.poster?'<a href="'+esc(event.poster)+'" class="party-image"><img src="'+esc(event.poster)+'" alt="Cartaz de '+esc(event.title)+'"></a>':'')+
+    '<div class="party-content">'+(event.deadline?'<span class="party-deadline">'+(open?'Pagamento até ':'Prazo de pagamento encerrado em ')+dateText(event.deadline)+'</span>':'')+
+    '<h2 id="party-title">'+esc(event.title)+'</h2><p><time datetime="'+event.date+'">'+dateText(event.date)+'</time>'+(event.details?' · '+esc(event.details):'')+'</p>'+
+    '<p>'+esc(event.local)+'</p>'+((event.family||event.individual)?'<div class="party-pricing">'+
+      (event.family?'<strong>'+money(event.family)+' <small>Família</small></strong>':'')+
+      (event.individual?'<strong>'+money(event.individual)+' <small>Individual</small></strong>':'')+'</div>':'')+
+    (open&&event.pix?'<div class="party-pix"><code>'+esc(event.pix)+'</code><button type="button" class="btn" data-act="partyPix">'+(ui.partyCopied?'Chave PIX copiada':'Copiar chave PIX')+'</button></div>':'')+'</div></section>';
 }
 function fieldCard(ed){
-  var I=S.info,c=curField(),h='<section class="card field-card'+(c.principal?'':' alt')+'">';
-  if(!c.principal)h+='<p class="alert">⚠️ Atenção: neste domingo o jogo é em outro campo!</p>';
+  var I=S.info,fixture=upcomingFixture(),regular=curField(),c=fixture.campo;
+  var h='<section class="card field-card'+(c.principal?'':' alt')+'">';
+  if(fixture.extra)h+='<p class="alert">Data, horário ou campo especial</p>';
   h+='<div class="fc-row">'+(c.photo?'<img class="fc-photo" src="'+c.photo+'" alt="Foto do '+esc(c.name)+'">':'<div class="fc-photo ph-empty" aria-hidden="true">🏟️</div>')+
-    '<div class="fc-txt"><small>'+(c.principal?'Nosso campo':'Campo deste domingo')+'</small><h2>'+esc(c.name)+'</h2><p>📍 '+esc(c.bairro)+'</p></div></div>';
+    '<div class="fc-txt"><small>Campo do próximo jogo</small><h2>'+esc(c.name)+'</h2><p>📍 '+esc(c.bairro)+'</p></div></div>';
   if(c.maps)h+='<a class="btn wide primary" href="'+esc(c.maps)+'" target="_blank" rel="noopener noreferrer">🗺️ Como chegar (rota GPS) →</a>';
   if(ed){
-    h+='<div class="field-pick"><p class="hint" style="margin:12px 0 6px">Onde é o jogo deste domingo? Toque para escolher:</p><div class="fp-btns">';
-    I.fields.forEach(function(x){h+='<button type="button" class="fp'+(x.id===c.id?' on':'')+'" data-act="setField" data-id="'+x.id+'" aria-pressed="'+(x.id===c.id)+'"><strong>'+esc(x.name.replace(/^Campo d[oa] /,''))+'</strong><span>'+esc(x.bairro.split(',')[0])+'</span></button>';});
+    h+='<div class="field-pick"><p class="hint" style="margin:12px 0 6px">Campo dos jogos de domingo</p><div class="fp-btns">';
+    I.fields.forEach(function(x){h+='<button type="button" class="fp'+(x.id===regular.id?' on':'')+'" data-act="setField" data-id="'+x.id+'" aria-pressed="'+(x.id===regular.id)+'"><strong>'+esc(x.name.replace(/^Campo d[oa] /,''))+'</strong><span>'+esc(x.bairro.split(',')[0])+'</span></button>';});
     h+='</div>'+filePick(c.photo?'📷 Trocar foto do '+esc(c.name):'📷 Colocar foto do '+esc(c.name),'__field__'+c.id,'btn sm wide')+'</div>';
   }
   return h+'</section>';
@@ -2468,7 +2594,7 @@ function postCard(p,ed){
     h+='</div>';
   }
   h+='<div class="post-in"><div class="kicker">'+(hero?'':'<span class="cat cat-'+cat+'">'+CATS[cat][0]+' '+CATS[cat][1]+'</span>')+(p.pinned?'<span class="pin">📌 Fixado</span>':'')+'<span class="when" title="'+esc(full)+'">'+relDate(p.date)+'</span><span class="by">Diretoria FDA</span></div><h2>'+esc(p.title||'Sem título')+'</h2>'+(p.body?'<div class="pbody">'+bodyHTML(p.body)+'</div>':'');
-  if(p.links.length)h+='<div class="links">'+p.links.map(function(l){return '<a class="btn sm" href="'+esc(l.url)+'" target="_blank" rel="noopener noreferrer">▶ '+esc(l.label||'Ver vídeo')+'</a>';}).join('')+'</div>';
+  if(p.links.length)h+='<div class="links">'+p.links.map(function(l){return '<a class="btn sm" href="'+esc(l.url)+'" target="_blank" rel="noopener noreferrer">↗ '+esc(l.label||(isVideoMap(secureHttpsLink(l.url))?'Como chegar':'Abrir link'))+'</a>';}).join('')+'</div>';
   if(p.kind==='campanha')h+=campaignBox(p,ed);
   if(ed)h+='<div class="btnrow"><button type="button" class="btn sm" data-act="editPost" data-id="'+p.id+'">Editar</button><button type="button" class="btn sm" data-act="copyPost" data-id="'+p.id+'">Copiar texto</button><button type="button" class="btn sm danger-t'+(ui.confirmDel===p.id?' sure':'')+'" data-act="delPost" data-id="'+p.id+'">'+(ui.confirmDel===p.id?'Toque de novo para apagar':'Apagar')+'</button></div>';
   else h+='<div class="btnrow"><button type="button" class="btn sm" data-act="copyPost" data-id="'+p.id+'">Copiar texto</button></div>';
@@ -2534,7 +2660,7 @@ function postEditor(){
   h+='<div class="period sm" role="group" aria-label="Tipo"><button type="button" data-act="pdKind" data-k="noticia" aria-pressed="'+(d.kind==='noticia')+'">Jornal</button><button type="button" data-act="pdKind" data-k="campanha" aria-pressed="'+(d.kind==='campanha')+'">Novidade com venda</button></div>';
   if(d.kind==='noticia')h+='<div class="field"><span>Categoria</span><div class="catpick">'+['noticia','jogo','comunicado','craque','murcha','campeao','resultado'].map(function(c){return '<button type="button" class="chip" data-act="pdCat" data-k="'+c+'" aria-pressed="'+(d.cat===c)+'">'+CATS[c][0]+' '+CATS[c][1]+'</button>';}).join('')+'</div></div>';
   h+='<label class="field"><span>Data da publicação</span><input type="date" id="pdDate" data-act="pdDate" value="'+isoDate(new Date(d.date))+'"></label>';
-  h+='<label class="field"><span>Título</span><input type="text" maxlength="120" data-pd="title" value="'+esc(d.title)+'" placeholder="Ex.: Amarelo vira o jogo no fim"></label>';
+  h+='<label class="field"><span>Título</span><input type="text" maxlength="120" data-pd="title" value="'+esc(d.title)+'" placeholder="Ex.: Verde vira o jogo no fim"></label>';
   h+='<label class="field"><span>Texto</span><textarea rows="8" maxlength="6000" data-pd="body" placeholder="Conte como foi. Linha em branco separa parágrafos.">'+esc(d.body)+'</textarea></label>';
   if(d.kind==='noticia'&&S.history.length)h+='<button type="button" class="btn sm" data-act="draftFromGame">Preencher com os números da última pelada</button>';
   if(d.kind==='campanha'){
@@ -2543,8 +2669,8 @@ function postEditor(){
   }
   h+='<div class="field"><span>Fotos ('+d.photos.length+' de 6)</span><div class="thumbs">'+d.photos.map(function(u,i){return '<div class="thumb"><img src="'+u+'" alt=""><button type="button" data-act="pdPhotoDel" data-i="'+i+'" aria-label="Tirar foto">✕</button></div>';}).join('')+
     (d.photos.length<6?filePick('+ Foto','__post__','thumb add'):'')+'</div></div>';
-  h+='<div class="field"><span>Vídeos (link do YouTube, Instagram, Google Drive…)</span>'+d.links.map(function(l,i){return '<div class="linkrow"><span>▶ '+esc(l.label||l.url)+'</span><button type="button" class="del" data-act="pdLinkDel" data-i="'+i+'" aria-label="Tirar vídeo">✕</button></div>';}).join('')+
-    (d.links.length<4?'<div class="ordform"><input id="pdLinkUrl" type="url" placeholder="Cole o link do vídeo"><input id="pdLinkLabel" type="text" maxlength="60" placeholder="Nome (opcional)"><button type="button" class="btn" data-act="pdLinkAdd">Adicionar vídeo</button></div>':'')+'</div>';
+  h+='<div class="field"><span>Links da publicação</span>'+d.links.map(function(l,i){return '<div class="linkrow"><span>↗ '+esc(l.label||l.url)+'</span><button type="button" class="del" data-act="pdLinkDel" data-i="'+i+'" aria-label="Remover link">✕</button></div>';}).join('')+
+    (d.links.length<4?'<div class="ordform"><input id="pdLinkUrl" type="url" placeholder="Cole o link" aria-label="Endereço do link" maxlength="500"><input id="pdLinkLabel" type="text" maxlength="60" placeholder="Texto do link (opcional)" aria-label="Texto do link"><button type="button" class="btn" data-act="pdLinkAdd">Adicionar link</button></div>':'')+'</div>';
   h+=pasteZone('__post__');
   h+='<label class="setting"><span>Fixar no topo e nos Avisos</span><input type="checkbox" class="sw" data-pdc="pinned"'+(d.pinned?' checked':'')+'></label>';
   h+='<p class="hint">Espaço usado: '+(used/1e6).toFixed(1).replace('.',',')+' MB de 9 MB. Cada foto ocupa cerca de 0,15 MB.</p>';
@@ -2563,7 +2689,7 @@ function pinnedTeaser(){
 function postText(p){
   var L=['📰 *'+p.title+'*',''];if(p.body)L.push(p.body,'');
   if(p.kind==='campanha'){L.push('💰 Valor: '+money(p.price));if(p.deadline)L.push('📅 Pagar até: '+dlabel(p.deadline));if(p.pix)L.push('🔑 Pix: '+p.pix);L.push('');}
-  p.links.forEach(function(l){L.push('▶ '+(l.label?l.label+': ':'')+l.url);});
+  p.links.forEach(function(l){L.push('↗ '+(l.label?l.label+': ':'')+l.url);});
   return L.join('\n').trim();
 }
 function gameDraft(){
@@ -2600,8 +2726,8 @@ function findGame(id){for(var i=0;i<S.history.length;i++)if(S.history[i].id===id
 
 var VIDEO_CATEGORIES={lance:'Lance',gol:'Gol',resenha:'Resenha'};
 var VIDEO_BUCKET='fda-videos';
-var videoLibrary={items:null,busy:false,error:false};
-function secureVideoLink(value){
+var videoLibrary={items:null,pending:null,error:false};
+function secureHttpsLink(value){
   try{
     var url=new URL(value);
     return url.protocol==='https:'&&!url.username&&!url.password&&url.href.length<=500?url.href:'';
@@ -2616,11 +2742,25 @@ function youtubeId(link){
   }
   return /^[\w-]{11}$/.test(id||'')?id:'';
 }
+function instagramReel(link){
+  if(!link)return '';
+  var url=new URL(link);
+  if(!['instagram.com','www.instagram.com','m.instagram.com'].includes(url.hostname))return '';
+  return url.pathname.match(/^\/reels?\/([A-Za-z0-9_-]{5,30})\/?$/)?.[1]||'';
+}
+function instagramReelUrl(code){return 'https://www.instagram.com/reel/'+code+'/';}
+function isVideoMap(link){
+  if(!link)return false;
+  var url=new URL(link);
+  return validMaps(link)||['waze.com','www.waze.com','ul.waze.com','maps.apple.com','maps.google.com.br'].includes(url.hostname)||
+    (['google.com.br','www.google.com.br'].includes(url.hostname)&&/^\/maps(?:\/|$)/.test(url.pathname));
+}
 function loadVideoLibrary(force){
-  if(videoLibrary.busy||(!force&&(videoLibrary.items||videoLibrary.error)))return;
-  videoLibrary.busy=true;
+  if(videoLibrary.pending)return videoLibrary.pending;
+  if(!force&&(videoLibrary.items||videoLibrary.error))return;
   var wasError=videoLibrary.error,updated=false;
-  return fetch(CFG.url+'/rest/v1/fda_videos?select=id,titulo,descricao,categoria,url,arquivo,criado_em&order=criado_em.desc,id.desc&limit=100',{cache:'no-store',headers:{apikey:CFG.chave}})
+  var signal=typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(10000):undefined;
+  videoLibrary.pending=fetch(CFG.url+'/rest/v1/fda_videos?select=id,titulo,descricao,categoria,url,arquivo,criado_em&order=criado_em.desc,id.desc&limit=100',{cache:'no-store',headers:{apikey:CFG.chave},signal:signal})
     .then(function(response){if(!response.ok)throw Error('Videoteca indisponível');return response.json();})
     .then(function(items){
       if(!Array.isArray(items))throw Error('Resposta inválida');
@@ -2629,34 +2769,39 @@ function loadVideoLibrary(force){
     })
     .catch(function(){videoLibrary.error=true;})
     .finally(function(){
-      videoLibrary.busy=false;
-      if((updated||wasError!==videoLibrary.error)&&!ui.videoSaving&&!ui.videoDraft&&!publicVideoOpen()&&['tv','lances'].includes(ui.tab))render();
+      videoLibrary.pending=null;
+      var day=dateBR(),dayChanged=videoLibrary.day!==day;
+      videoLibrary.day=day;
+      if((updated||dayChanged||wasError!==videoLibrary.error)&&!ui.videoSaving&&!ui.videoDraft&&!publicVideoOpen()&&['tv','lances'].includes(ui.tab))render();
     });
+  return videoLibrary.pending;
 }
 function videoItems(){
-  var items=(videoLibrary.items||[]).slice();
-  var seen=new Set(items.map(function(item){return secureVideoLink(item.url);}).filter(Boolean));
-  S.posts.forEach(function(post){
-    post.links.forEach(function(link,i){
-      var url=secureVideoLink(link.url);
-      if(!url||seen.has(url))return;
-      seen.add(url);
-      items.push({id:'post-'+post.id+'-'+i,titulo:link.label||post.title||'Vídeo do Jornal',descricao:'',categoria:post.cat==='murcha'?'resenha':'lance',url:url});
-    });
-  });
-  return items;
+  return (videoLibrary.items||[]).filter(function(item){return !isVideoMap(secureHttpsLink(item.url));});
 }
-function videoCard(item){
-  var id=esc(item.id),link=secureVideoLink(item.url),youtube=youtubeId(link);
+function dailyVideo(items){
+  var plays=items.filter(function(item){return item.categoria==='lance'||item.categoria==='gol';});
+  var lineup=plays.length?plays:items;
+  if(!lineup.length)return null;
+  var latestDay=lineup[0].criado_em?dateBR(lineup[0].criado_em):dateBR();
+  var days=Math.max(0,Math.floor((Date.parse(dateBR())-Date.parse(latestDay))/86400000));
+  return lineup[days%lineup.length];
+}
+function videoCard(item,withPoster){
+  var id=esc(item.id),link=secureHttpsLink(item.url),youtube=youtubeId(link),reel=instagramReel(link);
+  if(reel)link=instagramReelUrl(reel);
   var uploaded=/^[0-9a-f-]{36}\.(mp4|webm)$/.test(item.arquivo||'');
   var opened=ui.playVideo===item.id;
-  var media=uploaded&&opened?'<video controls playsinline preload="metadata" src="'+esc(CFG.url+'/storage/v1/object/public/'+VIDEO_BUCKET+'/'+item.arquivo)+'"></video>':
-    youtube&&opened?'<iframe src="https://www.youtube-nocookie.com/embed/'+youtube+'" title="'+esc(item.titulo)+'" allow="fullscreen; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>':
-    (uploaded||youtube?'<button class="video-cover" type="button" data-act="playVideo" data-id="'+id+'" aria-label="Assistir '+esc(item.titulo)+'"><span aria-hidden="true">▶</span>Assistir aqui</button>':
+  var poster=withPoster&&youtube?' style="--video-poster:url(https://i.ytimg.com/vi/'+youtube+'/hqdefault.jpg)"':'';
+  var media=uploaded&&opened?'<video controls autoplay playsinline preload="metadata" src="'+esc(CFG.url+'/storage/v1/object/public/'+VIDEO_BUCKET+'/'+item.arquivo)+'"></video>':
+    youtube&&opened?'<iframe src="https://www.youtube-nocookie.com/embed/'+youtube+'?autoplay=1&playsinline=1" title="'+esc(item.titulo)+'" allow="autoplay; fullscreen; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>':
+    reel&&opened?'<iframe class="video-reel" src="'+instagramReelUrl(reel)+'embed/" title="'+esc(item.titulo)+'" allow="fullscreen; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>':
+    (uploaded||youtube||reel?'<button class="video-cover" type="button" data-act="playVideo" data-id="'+id+'" aria-label="Assistir '+esc(item.titulo)+'"'+poster+'><span class="video-play"><span class="video-play-icon" aria-hidden="true"></span>Assistir aqui</span></button>':
       (link?'<a class="video-cover" href="'+esc(link)+'" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">↗</span>Abrir vídeo original</a>':''));
-  var managed=!item.id.startsWith('post-')&&canEditUi();
+  var managed=canEditUi();
+  var original=(youtube||reel)&&link?'<a class="link video-source" href="'+esc(link)+'" target="_blank" rel="noopener noreferrer">Abrir no '+(reel?'Instagram':'YouTube')+'</a>':'';
   return '<article class="card video-card">'+media+'<div class="video-copy"><small>'+esc(VIDEO_CATEGORIES[item.categoria]||'Lance')+'</small><h3>'+esc(item.titulo)+'</h3>'+
-    (item.descricao?'<p>'+esc(item.descricao)+'</p>':'')+(opened?'<button type="button" class="btn sm" data-act="closeVideo">Fechar vídeo</button>':'')+(managed?'<div class="btnrow tight"><button type="button" class="btn sm" data-act="editVideo" data-id="'+id+'">Editar vídeo</button>'+
+    (item.descricao?'<p>'+esc(item.descricao)+'</p>':'')+original+(opened?'<button type="button" class="btn sm" data-act="closeVideo">Fechar vídeo</button>':'')+(managed?'<div class="btnrow tight"><button type="button" class="btn sm" data-act="editVideo" data-id="'+id+'">Editar vídeo</button>'+
     '<button type="button" class="btn sm danger-t" data-act="removeVideo" data-id="'+id+'">'+(ui.confirmVideo===item.id?'Confirmar remoção':'Remover')+'</button></div>':'')+'</div></article>';
 }
 function videoEditor(){
@@ -2666,7 +2811,7 @@ function videoEditor(){
     '<label class="field">Descrição<textarea name="descricao" maxlength="400" rows="2">'+esc(d.descricao||'')+'</textarea></label>'+
     '<label class="field">Categoria<select name="categoria">'+Object.entries(VIDEO_CATEGORIES).map(function([key,label]){return '<option value="'+key+'"'+(d.categoria===key?' selected':'')+'>'+label+'</option>';}).join('')+'</select></label>'+
     (d.arquivo?'<p>Arquivo já publicado. Para substituir, cadastre outro vídeo.</p>':
-      '<label class="field">Link do YouTube, Instagram ou outro vídeo<input name="url" type="url" maxlength="500" value="'+esc(d.url||'')+'"></label>')+
+      '<label class="field">Link de um Reel público, YouTube ou outro vídeo<input name="url" type="url" maxlength="500" value="'+esc(d.url||'')+'"></label>')+
     (!d.id?'<label class="field">Ou envie um arquivo MP4 ou WebM de até 25 MB<input name="arquivo" type="file" accept="video/mp4,video/webm,.mp4,.webm"></label>':'')+
     '<div class="btnrow"><button class="btn primary" type="submit">'+(d.id?'Salvar vídeo':'Publicar na videoteca')+'</button><button class="btn" type="button" data-act="cancelVideo">Cancelar</button></div><p class="video-status" role="status"></p></form>';
 }
@@ -2674,11 +2819,17 @@ async function publishVideo(form){
   if(!canEditUi()||!SB||!ui.videoDraft||ui.videoSaving)return;
   var values=new FormData(form),draft=ui.videoDraft,input=values.get('arquivo');
   var titulo=String(values.get('titulo')||'').trim(),descricao=String(values.get('descricao')||'').trim(),categoria=String(values.get('categoria')||'');
-  var rawUrl=String(values.get('url')||'').trim(),url=secureVideoLink(rawUrl),arquivo=draft.arquivo||null,created=null;
+  var rawUrl=String(values.get('url')||'').trim(),url=secureHttpsLink(rawUrl),arquivo=draft.arquivo||null,created=null;
   var file=input&&input.size?input:null,kind=file&&file.type;
   var status=form.querySelector('.video-status');
   if(!titulo||!VIDEO_CATEGORIES[categoria]){status.textContent='Preencha o título e a categoria.';return;}
   if(rawUrl&&!url){status.textContent='Use um link HTTPS completo.';return;}
+  if(isVideoMap(url)){status.textContent='Esse link abre um mapa. Cole o endereço do vídeo.';return;}
+  if(url&&['instagram.com','www.instagram.com','m.instagram.com'].includes(new URL(url).hostname)){
+    var reel=instagramReel(url);
+    if(!reel){status.textContent='Copie o link direto de um Reel público do Instagram.';return;}
+    url=instagramReelUrl(reel);
+  }
   if(!arquivo&&Number(!!url)+Number(!!file)!==1){status.textContent='Escolha um arquivo ou informe um link.';return;}
   if(file&&(!['video/mp4','video/webm'].includes(kind)||file.size>26214400)){status.textContent='Envie MP4 ou WebM de até 25 MB.';return;}
   ui.videoSaving=true;status.textContent=file?'Enviando vídeo…':'Salvando…';
@@ -2695,7 +2846,9 @@ async function publishVideo(form){
     var result=await request.select('id').single();
     if(result.error)throw result.error;
     ui.videoDraft=null;created=null;
-    loadVideoLibrary(true);
+    ui.videoFilter=categoria;ui.playVideo=null;
+    await videoLibrary.pending;
+    await loadVideoLibrary(true);
     toast(draft.id?'Vídeo atualizado.':'Vídeo publicado na videoteca.');
   }catch(err){
     if(created)try{await SB.storage.from(VIDEO_BUCKET).remove([created]);}catch(cleanup){}
@@ -2703,6 +2856,7 @@ async function publishVideo(form){
   }finally{
     ui.videoSaving=false;
     form.querySelectorAll('button').forEach(function(button){button.disabled=false;});
+    if(!ui.videoDraft&&['tv','lances'].includes(ui.tab))render();
   }
 }
 async function removeVideo(id){
@@ -2716,10 +2870,12 @@ async function removeVideo(id){
     if(removed.error)throw removed.error;
     var stored=item.arquivo?await SB.storage.from(VIDEO_BUCKET).remove([item.arquivo]):null;
     ui.confirmVideo=null;
-    loadVideoLibrary(true);
+    if(ui.playVideo===id)ui.playVideo=null;
+    await videoLibrary.pending;
+    await loadVideoLibrary(true);
     toast(stored&&stored.error?'Vídeo removido da lista. O arquivo ainda está no armazenamento.':'Vídeo removido.');
   }catch(error){toast('Não foi possível remover o vídeo.');}
-  finally{ui.videoSaving=false;}
+  finally{ui.videoSaving=false;if(['tv','lances'].includes(ui.tab))render();}
 }
 function viewLances(){
   var journal=ui.lancesView==='jornal',ed=canEditUi();
@@ -2727,19 +2883,24 @@ function viewLances(){
     '<button type="button" class="chip" data-act="lancesView" data-v="videos" aria-pressed="'+!journal+'">Vídeos</button>'+
     '<button type="button" class="chip" data-act="lancesView" data-v="jornal" aria-pressed="'+journal+'">Jornal</button></div>';
   if(journal)return h+viewJornal();
-  if(ed)h+=ui.videoDraft?videoEditor():'<button class="btn primary" type="button" data-act="newVideo">Subir vídeo ou adicionar link</button>';
-  var selected=ui.videoFilter||'todos';
-  h+='<div class="catpick" role="group" aria-label="Tipos de vídeo">'+Object.entries({todos:'Todos',...VIDEO_CATEGORIES}).map(function([key,label]){return '<button type="button" class="chip" data-act="videoFilter" data-v="'+key+'" aria-pressed="'+(selected===key)+'">'+label+'</button>';}).join('')+'</div>';
-  var items=videoItems().filter(function(item){return selected==='todos'||item.categoria===selected;});
+  if(ed)h+=ui.videoDraft?videoEditor():'<button class="btn primary" type="button" data-act="newVideo">Adicionar lance ou vídeo</button>';
+  var showArchive=ed||ui.videoArchive;
+  var items=videoItems(),featured=dailyVideo(items),selected=ui.videoFilter||'todos';
   if(videoLibrary.error)h+='<p class="hint">A videoteca não respondeu. <button class="link" data-act="retryVideos">Tentar de novo</button></p>';
-  return h+(items.length?'<div class="video-grid">'+items.map(videoCard).join('')+'</div>':
-    '<p class="empty">'+(videoLibrary.busy?'Carregando vídeos…':'Nenhum vídeo nesta categoria.')+'</p>');
+  if(!showArchive&&featured)return h+'<section class="daily-video"><h3>Lance do dia</h3>'+videoCard(featured,true)+'</section>'+
+    (items.length>1?'<button type="button" class="btn" data-act="videoArchive">Ver outros vídeos</button>':'');
+  if(showArchive){
+    if(!ed)h+='<button type="button" class="btn" data-act="videoArchive">Voltar ao lance do dia</button>';
+    h+='<div class="catpick" role="group" aria-label="Tipos de vídeo">'+Object.entries({todos:'Todos',...VIDEO_CATEGORIES}).map(function([key,label]){return '<button type="button" class="chip" data-act="videoFilter" data-v="'+key+'" aria-pressed="'+(selected===key)+'">'+label+'</button>';}).join('')+'</div>';
+    items=items.filter(function(item){return selected==='todos'||item.categoria===selected;});
+  }
+  return h+(items.length?'<div class="video-grid">'+items.map(function(item){return videoCard(item,false);}).join('')+'</div>':
+    '<p class="empty">'+(videoLibrary.pending?'Carregando vídeos…':'Nenhum vídeo nesta categoria.')+'</p>');
 }
 function viewTV(){
-  var items=videoItems();
-  var featured=items.find(function(item){return item.categoria==='gol';})||items[0];
+  var featured=dailyVideo(videoItems());
   return '<section id="fda-screen" class="tv-screen"><header class="portal-heading"><div><h2>FDA TV</h2><p>Placar, destaques e vídeos da pelada.</p></div><button type="button" class="btn" data-act="tvFullscreen">Modo telão</button></header>'+
-    latestResultHTML()+weeklyHighlightsHTML()+awardsTV()+(featured?'<h3>Em destaque</h3>'+videoCard(featured):'')+
+    latestResultHTML()+weeklyHighlightsHTML()+awardsTV()+(featured?'<section class="daily-video"><h3>Lance do dia</h3>'+videoCard(featured,true)+'</section>':'')+
     '<button type="button" class="btn" data-act="tab" data-tab="lances">Abrir videoteca</button></section>';
 }
 function scoutParticipation(games,month){
@@ -2761,7 +2922,7 @@ function scoutParticipation(games,month){
 }
 function viewScouts(){
   var ed=canEditUi(),tab=ui.scoutView||'elenco';
-  var h='<header class="portal-heading"><h2>Elenco &amp; Scouts</h2><p>'+S.players.length+' atletas cadastrados · '+S.history.length+' jogos no histórico</p></header><div class="btnrow">'+
+  var h='<header class="portal-heading"><h2>Elenco &amp; Scouts</h2><p>'+S.players.length+' atletas cadastrados · '+S.history.filter(hasMatchRecord).length+' jogos no histórico</p></header><div class="btnrow">'+
     Object.entries({elenco:'Elenco',scout:'Comparar atletas',ranking:'Ranking',...(ed?{editar:'Editar elenco'}:{})}).map(function([key,label]){
       return '<button type="button" class="chip" data-act="scoutView" data-v="'+key+'" aria-pressed="'+(tab===key)+'">'+label+'</button>';
     }).join('')+'</div>';
@@ -2801,7 +2962,7 @@ function viewScouts(){
     var teamLabel=t>=0?COLORS[t%COLORS.length].n:'Sem time confirmado';
     var side=t===0?' scout-red':t===1?' scout-green':'';
     return '<article class="card scout-card'+side+'" style="--red-fill:'+redFill+'%;--all-fill:'+(redFill+greenFill)+'%">'+
-      '<header>'+kitAvatar(p,48,t)+'<div><h3>'+nameLink(p,p.id)+'</h3><small>'+esc(POSSHORT[p.pos]||'Posição sem registro')+(p.num?' · #'+p.num:'')+'</small></div></header>'+
+      '<header>'+kitAvatar(p,48,t)+'<div><h3>'+nameLink(p,p.id)+'</h3><small>'+esc(POSSHORT[p.pos]||'Posição sem registro')+(p.num?' · '+p.num:'')+'</small></div></header>'+
       '<span class="scout-team-label">'+esc(teamLabel)+'</span>'+
       (participation.total?'<div class="scout-participation"><span><i class="scout-dot red"></i>Vermelho <b>'+red+'</b></span><span><i class="scout-dot green"></i>Verde <b>'+green+'</b></span>'+
         '<div class="scout-meter" aria-hidden="true"></div></div>':'')+
@@ -2868,19 +3029,23 @@ document.addEventListener('click',function(e){
       var target=b.dataset.tab;
       if((!canEditUi()&&directorTabs.includes(target))||(target==='acessos'&&!ui.manageAccess))break;
       ui.perfil=null;if(profileFromURL())history.replaceState(null,'',location.pathname+location.search);
-      if(target!=='jogos')ui.livePanel=null;
-      ui.tab=target;ui.tabTouched=true;ui.sel=null;ui.editPlayer=null;ui.playVideo=null;
+      if(target!=='jogos'){
+        ui.livePanel=null;
+        if(voiceRecognition)voiceRecognition.stop();
+      }
+      ui.tab=target;ui.tabTouched=true;ui.sel=null;ui.editPlayer=null;ui.playVideo=null;ui.videoArchive=false;
       if(target==='acessos'&&!ui.accessRows)loadAccess();
       if(['tv','lances'].includes(target))loadVideoLibrary(false);
       render();window.scrollTo(0,0);break;}
-    case 'lancesView':ui.lancesView=b.dataset.v==='jornal'?'jornal':'videos';render();break;
+    case 'lancesView':ui.lancesView=b.dataset.v==='jornal'?'jornal':'videos';ui.playVideo=null;render();break;
+    case 'videoArchive':ui.videoArchive=!ui.videoArchive;ui.videoFilter='todos';ui.playVideo=null;render();break;
     case 'openJournal':ui.tab='lances';ui.lancesView='jornal';ui.tabTouched=true;render();window.scrollTo(0,0);break;
     case 'videoFilter':ui.videoFilter=b.dataset.v;ui.playVideo=null;render();break;
     case 'retryVideos':loadVideoLibrary(true);render();break;
     case 'playVideo':ui.playVideo=id;render();break;
     case 'closeVideo':ui.playVideo=null;render();refreshPublic();break;
     case 'scoutView':ui.scoutView=b.dataset.v;render();break;
-    case 'newVideo':if(canEditUi()){ui.videoDraft={};render();document.getElementById('video-editor')?.scrollIntoView({block:'nearest'});}break;
+    case 'newVideo':if(canEditUi()){ui.videoDraft={categoria:ui.videoFilter==='todos'?'lance':ui.videoFilter};render();document.getElementById('video-editor')?.scrollIntoView({block:'nearest'});}break;
     case 'editVideo':if(canEditUi()){ui.videoDraft=(videoLibrary.items||[]).find(function(item){return item.id===id;});ui.tab='lances';ui.lancesView='videos';render();document.getElementById('video-editor')?.scrollIntoView({block:'nearest'});}break;
     case 'cancelVideo':if(!ui.videoSaving){ui.videoDraft=null;render();}break;
     case 'removeVideo':removeVideo(id);break;
@@ -2893,10 +3058,10 @@ document.addEventListener('click',function(e){
       break;}
     case 'openLineup':ui.perfil=null;ui.tab='times';ui.tabTouched=true;ui.publicTeamsMonth=b.dataset.month;render();window.scrollTo(0,0);break;
     case 'partyPix':{
-      var event=S.info.festa||FESTA_11;
-      if(dateBR()>event.deadline)break;
+      var event=S.info.festa;
+      if(!event?.pix||!event.deadline||dateBR()>event.deadline)break;
       if(!navigator.clipboard?.writeText){copy(event.pix);break;}
-      navigator.clipboard.writeText(event.pix).then(function(){ui.partyCopied=true;b.textContent='Chave PIX Copiada!';},function(){copy(event.pix);});break;}
+      navigator.clipboard.writeText(event.pix).then(function(){ui.partyCopied=true;b.textContent='Chave PIX copiada';},function(){copy(event.pix);});break;}
     case 'voiceStart':startVoice(findGame(b.dataset.g));break;
     case 'voiceParse':{
       var game=findGame(b.dataset.g),input=document.getElementById('voice-transcript');
@@ -2972,25 +3137,34 @@ document.addEventListener('click',function(e){
       var rp=findByName(nmv),nid=rp?rp.id:'n:'+nmv;if(gameRoster(ga).indexOf(nid)>=0){toast('Esse atleta já está na rodada.');break;}
       ga.names[nid]=rp?rp.name:nmv;if(tv==='s')ga.sem.push(nid);else{var ti=+tv===1?1:0;while(ga.teams.length<=ti)ga.teams.push([]);ga.teams[ti].push(nid);}
       ga.sumula=true;change();toast(nmv+(rp?'':' (atleta fora do Elenco)')+' adicionado à rodada.');break;}
-    case 'gDelP':{var gd=findGame(b.dataset.g);if(!gd)break;gd.teams=gd.teams.map(function(t){return t.filter(function(x){return x!==id;});});gd.sem=gd.sem.filter(function(x){return x!==id;});delete gd.stats[id];if(gd.cheia===id)gd.cheia=null;if(gd.murcha===id)gd.murcha=null;ui.editPlayer=null;change();break;}
+    case 'gDelP':{var gd=findGame(b.dataset.g);if(!gd)break;
+      if(gd.juri.votos.some(function(vote){return vote.cheia===id||vote.murcha===id;})){toast('Esse atleta já recebeu voto e precisa permanecer na lista da partida.');break;}
+      if(gd.stats[id]?.g||gd.stats[id]?.og){toast('Ajuste os gols deste atleta antes de retirá-lo da partida.');break;}
+      gd.teams=gd.teams.map(function(t){return t.filter(function(x){return x!==id;});});gd.sem=gd.sem.filter(function(x){return x!==id;});delete gd.stats[id];if(gd.cheia===id)gd.cheia=null;if(gd.murcha===id)gd.murcha=null;ui.editPlayer=null;change();break;}
     case 'period':ui.period=b.dataset.p;render();break;
-    case 'rodAdd':{var dv2=(document.getElementById('rodDate')||{}).value||ui.rodDate||dateBR();if(!validDay(dv2)){toast('Escolha a data do jogo.');break;}
-      if(S.history.some(function(x){return dateBR(x.date)===dv2;})){toast('Já existe uma rodada nesse dia.');break;}
-      var dt=new Date(dv2+'T12:00:00-03:00').getTime(),tm=monthTeams(dv2.slice(0,7)),nm2={};
-      if(tm)tm.forEach(function(t){t.forEach(function(id){var p=byId(id);if(p)nm2[id]=p.name;});});
-      var fixture=S.info.proximoJogo;
-      var ng=normGame({id:uid(),date:dt,teams:tm?tm.map(function(t){return t.slice();}):[[],[]],names:nm2,campo:fixture?.date===dv2?fixture.campo:curField().id,stats:{},cob:{e:false},adv:((document.getElementById('rodAdv')||{}).value||'')});
-      S.history.push(ng);S.history.sort(function(a,b){return b.date-a.date;});ui.editGame=ng.id;ui.rodDate='';change();save();toast('Rodada registrada. Agora lance o placar e os destaques.');break;}
+    case 'rodAdd':{
+      if(!canEditUi()||ui.busy)break;
+      var day=(document.getElementById('rodDate')||{}).value||ui.rodDate||dateBR();
+      if(!validDay(day)){toast('Escolha a data do jogo.');break;}
+      if(gameOnDay(day)){toast('Já existe uma rodada nesse dia.');break;}
+      var game=newMatch(day,document.getElementById('rodAdv')?.value||'');
+      ui.editGame=game.id;ui.juriGame=game.id;ui.rodDate='';resetVote();change();save();break;}
     case 'campAdd':{var cmk=(document.getElementById('campMes')||{}).value,ctm=(document.getElementById('campTime')||{}).value;if(!/^\d{4}-\d{2}$/.test(cmk||'')){toast('Escolha o mês.');break;}
       if(!S.meses[cmk])S.meses[cmk]={teams:[],campeao:null};S.meses[cmk].campeao=+ctm;change();save();toast('Campeão de '+monthLabel(cmk)+' registrado.');break;}
     case 'placarClear':{var gq=findGame(b.dataset.g);if(canEditUi()&&gq&&!gq.live){gq.placar=null;lockLiveGoals(gq);change();}break;}
-    case 'vStart':{var iso0=b.dataset.date;if(!/^\d{4}-\d{2}-\d{2}$/.test(iso0))break;if(S.history.some(function(x){return isoDate(new Date(x.date))===iso0;})){toast('Esse jogo já está registrado.');break;}
-      var pq=iso0.split('-'),tq=monthTeams(iso0.slice(0,7));if(!tq){toast('Cadastre os times do mês na aba Sorteio primeiro.');break;}
-      var nq={};tq.forEach(function(t){t.forEach(function(i2){var p9=byId(i2);if(p9)nq[i2]=p9.name;});});
-      var gn=normGame({id:uid(),date:new Date(+pq[0],+pq[1]-1,+pq[2],6,0).getTime(),teams:tq.map(function(t){return t.slice();}),names:nq,campo:curField().id,stats:{},cob:{e:false,g:false,a:false,p:false,f:false,c:false}});
-      S.history.push(gn);S.history.sort(function(a,b){return b.date-a.date;});ui.juriGame=gn.id;resetVote();change();toast('Jogo pronto. Tire quem não foi (✕) e faça a votação.');break;}
+    case 'voteOpen':{
+      var game=findGame(id);
+      if(canEditUi()&&game){selectVote(game);render();document.querySelector('[data-act="juriGame"]')?.scrollIntoView({block:'center'});}break;}
+    case 'voteToGame':{
+      if(canEditUi()&&findGame(id)){ui.tab='jogos';ui.editGame=id;ui.editPlayer=null;render();}break;}
+    case 'vStart':{
+      if(!canEditUi()||ui.busy||!validDay(b.dataset.date))break;
+      var existing=gameOnDay(b.dataset.date),game=existing||newMatch(b.dataset.date,'');
+      selectVote(game);
+      if(existing)render();else{change();save();}break;}
     case 'vOut':{var go=findGame(b.dataset.g);if(!go||go.juri.final)break;
-      if(go.juri.votos.some(function(v){return v.cheia===id||v.murcha===id;})){toast('Esse atleta já recebeu voto. Edite ou apague o voto antes de tirá-lo da lista.');break;}
+      if(go.juri.votos.some(function(v){return v.cheia===id||v.murcha===id;})){toast('Esse atleta já recebeu voto e precisa permanecer na lista da partida.');break;}
+      if(go.stats[id]?.g||go.stats[id]?.og){toast('Ajuste os gols deste atleta antes de retirá-lo da partida.');break;}
       var to=-1;go.teams.forEach(function(t,i2){if(t.indexOf(id)>=0)to=i2;});if(to<0)break;
       go.teams[to]=go.teams[to].filter(function(x){return x!==id;});delete go.stats[id];
       ui.vOutL=ui.vOutL||{};(ui.vOutL[go.id]=ui.vOutL[go.id]||[]).push({id:id,t:to});
@@ -3030,7 +3204,7 @@ document.addEventListener('click',function(e){
     case 'rkf':ui.rkf=b.dataset.k;render();break;
     case 'timesView':ui.timesView=b.dataset.v==='campo'?'campo':'lista';render();break;
     case 'timeCampo':ui.timeCampo=+b.dataset.i===1?1:0;render();break;
-    case 'setField':{if(S.info.fieldId===id)break;S.info.fieldId=id;change();var nf=curField();toast(nf.principal?'Jogo voltou para o '+nf.name+'. Toque em Salvar.':'Jogo deste domingo no '+nf.name+'. Toque em Salvar e avise a galera.');break;}
+    case 'setField':{if(S.info.fieldId===id||!fieldById(id))break;S.info.fieldId=id;change();toast('Campo dos jogos de domingo atualizado. Toque em Salvar.');break;}
     case 'goPost':openPost(id);break;
     case 'newPost':ui.postDraft={isNew:true,cat:'noticia',id:uid(),date:Date.now(),kind:'noticia',title:'',body:'',photos:[],links:[],pinned:false,price:0,deadline:'',pix:'',orders:[]};render();window.scrollTo(0,0);break;
     case 'editPost':{var ep=findPost(id);if(!ep)break;ui.postDraft=JSON.parse(JSON.stringify(ep));ui.postDraft.orders=ui.postDraft.orders||[];ui.postDraft.isNew=false;render();window.scrollTo(0,0);break;}
@@ -3040,7 +3214,7 @@ document.addEventListener('click',function(e){
     case 'pdKind':ui.postDraft.kind=b.dataset.k;render();break;
     case 'pdPhoto':{if(stateSize()>SIZE_LIMIT){toast('Espaço cheio. Apague fotos antigas antes de colocar novas.');break;}ui.photoFor='__post__';var fp=document.getElementById('photoinput');if(fp){fp.value='';fp.click();}break;}
     case 'pdPhotoDel':ui.postDraft.photos.splice(+b.dataset.i,1);render();break;
-    case 'pdLinkAdd':{var lu2=(document.getElementById('pdLinkUrl')||{}).value||'';lu2=lu2.trim();if(!/^https?:\/\/\S+$/i.test(lu2)){toast('Cole um link completo, começando com https://');break;}ui.postDraft.links.push({url:lu2,label:((document.getElementById('pdLinkLabel')||{}).value||'').trim().slice(0,60)});render();break;}
+    case 'pdLinkAdd':{var lu2=(document.getElementById('pdLinkUrl')||{}).value||'';lu2=secureHttpsLink(lu2.trim());if(!lu2){toast('Cole um link completo, começando com https://');break;}ui.postDraft.links.push({url:lu2,label:((document.getElementById('pdLinkLabel')||{}).value||'').trim().slice(0,60)});render();break;}
     case 'pdLinkDel':ui.postDraft.links.splice(+b.dataset.i,1);render();break;
     case 'draftFromGame':{var gd=gameDraft();ui.postDraft.body=ui.postDraft.body?ui.postDraft.body+'\n\n'+gd:gd;if(!ui.postDraft.title)ui.postDraft.title='Como foi o domingo';render();break;}
     case 'savePost':{var d=ui.postDraft;if(!d.title.trim()){toast('Dê um título para a publicação.');break;}
@@ -3063,7 +3237,8 @@ document.addEventListener('click',function(e){
     case 'delNotice':{if(ui.confirmDel!==id){ui.confirmDel=id;render();break;}S.info.notices=S.info.notices.filter(function(n){return n.id!==id;});ui.confirmDel=null;change();break;}
     case 'logo':{ui.photoFor='__logo__';var fl=document.getElementById('photoinput');if(fl){fl.value='';fl.click();}break;}
     case 'logoDel':if(canEditUi()){S.info.logo='';change();}break;
-    case 'clearFixture':if(canEditUi()){S.info.proximoJogo=null;change();}break;
+    case 'clearFixture':if(canEditUi()&&!ui.busy){removePendingFixture(S.info.proximoJogo);S.info.proximoJogo=null;change();save();}break;
+    case 'hideEvent':if(canEditUi()&&S.info.festa&&!ui.busy&&!ui.eventSaving){S.info.festa.hidden=!S.info.festa.hidden;change();save();}break;
     case 'accessNew':
     case 'accessReset':if(canEditUi()&&ui.manageAccess&&!ui.accessBusy){
       ui.accessForm=a==='accessNew'?{action:'create'}:{action:'reset',email:id};render();
@@ -3132,7 +3307,6 @@ document.addEventListener('change',function(e){
   else if(a==='gk'){S.settings.gk=el.checked;change();}
   else if(a==='rot'){S.settings.rot=el.value;change();}
   else if(a==='showStars'){ui.showStars=el.checked;render();}
-  else if(a==='shareStars'){S.settings.shareStars=el.checked;change();}
 });
 function handleImage(f,pid){
   if(!f||!pid)return;
@@ -3168,6 +3342,7 @@ document.addEventListener('submit',function(e){
     case 'access-editor':e.preventDefault();submitAccess(form);break;
     case 'own-password':e.preventDefault();submitOwnPassword(form);break;
     case 'special-fixture':e.preventDefault();saveFixture(form);break;
+    case 'club-event':e.preventDefault();saveEvent(form);break;
     case 'match':e.preventDefault();applyMatchForm(form);break;
     case 'stats':e.preventDefault();applyPlayerStats(form);break;
     case 'live-goal':e.preventDefault();submitLiveGoal(form);break;
